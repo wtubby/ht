@@ -1,0 +1,15 @@
+module.exports = {
+  authValidation: require('./auth'),
+  companyValidation: require('./company'),
+  mainContractValidation: require('./mainContract'),
+  subContractValidation: require('./subContract'),
+  invoiceInValidation: require('./invoiceIn'),
+  invoiceOutValidation: require('./invoiceOut'),
+  fileValidation: require('./file'),
+  bankAccountValidation: require('./bankAccount'),
+  paymentValidation: require('./payment'),
+  receiveValidation: require('./receive'),
+  bondValidation: require('./bond'),
+  systemSettingsValidation: require('./systemSettings'),
+  commonValidation: require('./common'),
+};

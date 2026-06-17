@@ -1,0 +1,163 @@
+---
+description: 页面数据获取分层与路由规则（列表 ProTable 直连 API，其余走 hooks）
+globs: src/pages/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# 数据获取规范
+
+> 适用范围：`src/pages/**`。修改或新增页面时，按下方决策表选路径，不要混用。
+
+## 三层职责
+
+| 层 | 路径 | 职责 | 禁止 |
+|----|------|------|------|
+| API | `services/wtu/*.api.ts` | 纯 HTTP 请求 | `import React` |
+| Hooks | `hooks/useXxx.ts` | React Query 封装（`createCrudHooks` + 自定义 query/mutation） | 页面逻辑 |
+| Pages | `src/pages/**` | UI + 按本规范消费数据 | 默认禁止直连业务 CRUD API（见下方例外） |
+
+页面统一从 `@/hooks` 导入 hooks，从 `@/services/wtu/*.api` 导入仅出现在「允许直连 API」例外中的函数。
+
+---
+
+## 决策表（AI 按场景选唯一路径）
+
+### A. 模块顶层列表页（标准路径）
+
+**判定**：页面主区域是带分页/筛选的 ProTable 列表（如 `InvoiceInList`、`PaymentList`、`CompanyList`）。
+
+| 操作 | 做法 |
+|------|------|
+| 拉列表 | ProTable `request` 内调用 `getXxx(params)`（来自 `*.api.ts`） |
+| 删/批量改后刷新 | `actionRef.current?.reload()` |
+| 删除 | `useRemoveXxx` + `mutateAsync`，成功后 **必须** `reload()` |
+| 新增/编辑提交 | `useAddXxx` / `useUpdateXxx`，成功后由父组件 `reload()` 或回调刷新 |
+
+**禁止**：
+
+- 在顶层列表页使用 `useXxxs` / `useXxxList` / `createCrudHooks` 的 `useList`
+- 删除后仅依赖 mutation 的 `invalidateQueries` 刷新表格（ProTable 不走 RQ 列表缓存）
+
+**参考**：`src/pages/InvoiceIn/InvoiceInList.tsx`、`src/pages/Payment/PaymentList.tsx`
+
+```tsx
+// 列表 request 标准写法
+import { getInvoiceIns } from '@/services/wtu/invoiceIn.api';
+import { useRemoveInvoiceIn } from '@/hooks';
+
+request={async (params) => {
+  const res = await getInvoiceIns(params);
+  return { data: res.data ?? [], success: true, total: res.total ?? 0 };
+}}
+
+// 删除后
+await removeMutation.mutateAsync(id);
+actionRef.current?.reload();
+```
+
+### B. 详情 Drawer
+
+| 操作 | 做法 |
+|------|------|
+| 拉单条详情 | `useXxx(id, visible && !!id)` |
+
+Drawer 关闭或 `visible` 为 false 时，`enabled` 置 false 即可暂停请求；无需手动清 queryCache，再次打开会按 stale 策略自动 refetch。
+
+### C. 表单
+
+| 操作 | 做法 |
+|------|------|
+| 提交 | `useAddXxx` / `useUpdateXxx` + `mutateAsync` |
+| 编辑预填 | `queryClient.fetchQuery(fetchXxxQuery(id))` |
+| 下拉初始选项 | `useXxxSelectOptions()` |
+| 下拉远程搜索 / debounce 补数据 | 允许直连 `getSelectOptions`（`*.api.ts`），与 hook 初始加载并存 |
+
+**参考**：`InvoiceInForm` 初始用 `useInvoiceInSelectOptions`，搜索用 `getSelectOptions`。
+
+### D. 详情内嵌关联子表
+
+**判定**：在 Drawer/详情 Tab 内展示关联数据（非模块顶层列表页）。
+
+| 操作 | 做法 |
+|------|------|
+| 子表数据 | `usePayments` / `useInvoiceIns` 等 list hook，`enabled: visible && !!parentId` |
+| 子表 UI | 可用 `ProTable` 或 `Table` 展示，**不算**顶层列表页 |
+
+**参考**：`src/pages/SubContract/SubContractDetail.tsx`
+
+### E. 组合/并行列表查询
+
+**判定**：需要命令式合并多个查询结果，不依赖 ProTable `request` 驱动（如并行 `fetchXxxsQuery` 后合并，或在事件/副作用里 `queryClient.fetchQuery` 取数）。
+
+| 操作 | 做法 |
+|------|------|
+| 拉列表 | `queryClient.fetchQuery(fetchXxxsQuery(params))`（从 `@/hooks` 导入） |
+
+**参考**：`src/pages/Company/ContractSection.tsx`
+
+---
+
+## 允许页面直连 `*.api.ts` 的完整例外
+
+以下场景**不需要**为此单独建 hook，页面可直接 import API：
+
+1. **ProTable `request` 分页列表**（决策 A）
+2. **`file.api`**：附件列表/上传/预览/下载
+3. **`bankAccount.api`**：表单/编辑时银行账户联动（常与 `fetchXxxQuery` 并行）
+4. **下拉远程搜索**：`getSelectOptions` 等（决策 C）
+5. **`dashboard.api`**、**`paymentApplication.api`** 等统计/打印/报表一次性接口
+6. **认证与系统**：`user.api`（`login`、`updatePassword`）、`getPublicSystemSettings`（登录页）
+7. **无 CRUD 工厂的单页配置**：如 `SystemSettings` 直连 `getSystemSettings` / `updateSystemSettings`
+
+除上述外，业务 CRUD（get/add/update/remove）应走 hooks。
+
+---
+
+## `hooks/index.ts` 导出约定
+
+**应导出**（供页面使用）：
+
+- 详情：`useXxx`
+- 写操作：`useAddXxx`、`useUpdateXxx`、`useRemoveXxx`、业务 mutation（如 `useRefundBond`）
+- 预填/命令式查询：`fetchXxxQuery`、`fetchXxxsQuery`
+- 下拉：`useXxxSelectOptions`
+- 内嵌子表 list hook：`usePayments`、`useInvoiceIns`（仅用于决策 D，**不**用于顶层列表页）
+- queryKey：`xxxKeys`
+
+**不应导出**（避免与 ProTable 双轨；ProTable 不走 RQ 列表缓存，`invalidateQueries` 对顶层表格无效）：
+
+- 供顶层列表页使用的 `useXxxs` / `useXxxList`（如 `useInvoiceOuts`）
+- 未使用的 list hook
+
+`createCrudHooks` 内部仍保留 list queryKey，供 `fetchXxxsQuery` 与内嵌子表使用；模块内可实现 `useList`，但不经 barrel 暴露给顶层列表页。
+
+---
+
+## mutation 与缓存刷新
+
+| 数据消费方式 | 写操作后如何刷新 |
+|--------------|------------------|
+| ProTable 顶层列表 | **必须** `actionRef.current?.reload()` |
+| `useXxx` 详情 / 内嵌 list hook | mutation 的 `invalidateQueries` 通常足够；必要时父组件 `refetch` |
+
+### 乐观更新
+
+| 场景 | 做法 |
+|------|------|
+| ProTable 顶层列表 | **不**用 RQ `onMutate` 改表格数据；等服务端成功后再 `reload()`，即时反馈靠按钮 loading |
+| 详情 / 内嵌 list hook（RQ 缓存驱动） | 拖拽排序、开关 toggle 等强交互，可在 mutation hook 内 `onMutate` 乐观更新 + `onError` 回滚，成功后 `invalidateQueries` |
+| 组件本地 state（如上传列表） | 允许在请求成功后直接改本地 state，不必为此建 RQ list |
+
+乐观更新逻辑写在 `hooks/useXxx.ts` 的 mutation 内，页面不直接操作 `queryClient.setQueryData`。
+
+---
+
+## 新建模块检查清单
+
+1. 新建 `services/wtu/xxx.api.ts`（纯 HTTP）
+2. 新建 `hooks/useXxx.ts`（`createCrudHooks` + `fetchXxxQuery`；按需 `fetchXxxsQuery`、SelectOptions）
+3. 在 `hooks/index.ts` 按「导出约定」注册（不含顶层 list hook）
+4. 列表页：`XxxList.tsx` → ProTable `request` 调 `getXxx` + `useRemoveXxx`
+5. 表单/详情：从 `@/hooks` 消费，不直连 CRUD API
+
+**标杆模块**：`InvoiceIn`（`InvoiceInList` + `InvoiceInForm` + `hooks/useInvoice.ts`）
