@@ -233,14 +233,17 @@ export const PaymentApplicationTemplate = forwardRef<
                   <td>{currentContract.contract_name}</td>
                   <td>{formatAmountOrDash(currentContract.amount_contract)}</td>
                   <td>
-                    {calculatePercentage(data.payment.total_paid, currentContract.amount_contract)}
+                    {calculatePercentage(
+                      data.summary.total_paid_amount,
+                      currentContract.amount_contract,
+                    )}
                   </td>
                   <td>{formatAmountOrDash(data.allSubContracts[0]?.total_invoiced || 0)}</td>
-                  <td>{formatAmountOrDash(data.allSubContracts[0]?.total_paid || 0)}</td>
+                  <td>{formatAmountOrDash(data.summary.total_paid_amount)}</td>
                   <td></td>
                   <td></td>
                   <td></td>
-                  <td>{formatAmountOrDash(data.allSubContracts[0]?.total_paid || 0)}</td>
+                  <td>{formatAmountOrDash(data.summary.total_paid_amount)}</td>
                 </tr>
               ) : (
                 <tr>
@@ -266,23 +269,11 @@ export const PaymentApplicationTemplate = forwardRef<
               <td colSpan={2}></td>
               <td></td>
               <td></td>
-              <td>
-                {formatAmountOrDash(
-                  (data.allSubContracts || []).reduce((sum, contract) => {
-                    const amount = Number(contract.amount_contract) || 0;
-                    return sum + amount;
-                  }, 0),
-                )}
-              </td>
+              <td>{formatAmountOrDash(data.summary.total_contract_amount)}</td>
               <td></td>
               <td></td>
               <td></td>
-              <td>
-                {formatAmountOrDash(
-                  data.summary.professional.total_paid_amount +
-                    data.summary.labor.total_paid_amount,
-                )}
-              </td>
+              <td>{formatAmountOrDash(data.summary.total_paid_amount)}</td>
             </tr>
           </tbody>
         </table>

@@ -76,6 +76,18 @@ async function getApplicationData(paymentId) {
     throw new ApiError(404, '找不到对应的分包合同', ERROR_CODES.RESOURCE_NOT_FOUND);
   }
 
+  const mainContract = await MainContract.findByPk(mainContractId, {
+    attributes: ['id', 'contract_name', 'amount_contract', 'party_a_id', 'party_b_id'],
+    include: [
+      { model: Company, as: 'partyA', attributes: ['id', 'company_name'] },
+      { model: Company, as: 'partyB', attributes: ['id', 'company_name'] },
+    ],
+  });
+
+  if (!mainContract) {
+    throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+
   const allSubContracts = [currentSubContract];
 
   const mainContractReceives = await Receive.findAll({
@@ -133,32 +145,15 @@ async function getApplicationData(paymentId) {
     .slice(0, 4)
     .map((r) => parseFloat(r.receive_amount) || 0);
 
-  const laborTotalContract = subContractsWithPayments.reduce(
-    (sum, c) => sum + (c.amount_contract || 0),
-    0,
-  );
-  const laborTotalPaid = subContractsWithPayments.reduce(
-    (sum, c) => sum + (c.total_paid || 0),
-    0,
-  );
-
   const summary = {
-    labor: {
-      total_contract_amount: laborTotalContract,
-      total_paid_amount: laborTotalPaid,
-    },
-    professional: {
-      total_contract_amount: laborTotalContract,
-      total_paid_amount: laborTotalPaid,
-    },
-    other: {
-      total_contract_amount: laborTotalContract,
-      total_paid_amount: laborTotalPaid,
-    },
-    material: {
-      total_contract_amount: laborTotalContract,
-      total_paid_amount: laborTotalPaid,
-    },
+    total_contract_amount: subContractsWithPayments.reduce(
+      (sum, c) => sum + (c.amount_contract || 0),
+      0,
+    ),
+    total_paid_amount: subContractsWithPayments.reduce(
+      (sum, c) => sum + (c.total_paid || 0),
+      0,
+    ),
   };
 
   const mainContractTotalInvoiced = parseFloat(invoiceResult?.total || 0);
@@ -166,24 +161,24 @@ async function getApplicationData(paymentId) {
   return {
     payment: payment.toJSON(),
     mainContract: {
-      id: payment.subContract.mainContract.id,
-      contract_name: payment.subContract.mainContract.contract_name,
-      amount_contract: payment.subContract.mainContract.amount_contract,
+      id: mainContract.id,
+      contract_name: mainContract.contract_name,
+      amount_contract: mainContract.amount_contract,
       total_received: mainContractTotalReceived,
       total_invoiced: mainContractTotalInvoiced,
       receives: mainContractReceives,
       receivesByOrder,
       invoices: mainContractInvoices,
-      partyA: payment.subContract.mainContract.partyA,
-      partyB: payment.subContract.mainContract.partyB,
+      partyA: mainContract.partyA,
+      partyB: mainContract.partyB,
     },
     allSubContracts: subContractsWithPayments,
     summary,
     currentSubContract: {
-      id: payment.subContract.id,
-      contract_name: payment.subContract.contract_name,
-      contract_type: payment.subContract.contract_type,
-      amount_contract: payment.subContract.amount_contract,
+      id: currentSubContract.id,
+      contract_name: currentSubContract.contract_name,
+      contract_type: currentSubContract.contract_type,
+      amount_contract: currentSubContract.amount_contract,
     },
   };
 }

@@ -331,24 +331,10 @@ declare namespace API {
       partyB?: Company;
       partyC?: Company;
     }>;
-    // 汇总数据
+    // 当前分包合同汇总（合同金额 / 累计已付）
     summary: {
-      labor: {
-        total_contract_amount: number;
-        total_paid_amount: number;
-      };
-      professional: {
-        total_contract_amount: number;
-        total_paid_amount: number;
-      };
-      other: {
-        total_contract_amount: number;
-        total_paid_amount: number;
-      };
-      material: {
-        total_contract_amount: number;
-        total_paid_amount: number;
-      };
+      total_contract_amount: number;
+      total_paid_amount: number;
     };
     // 当前付款的分包合同信息
     currentSubContract: {
