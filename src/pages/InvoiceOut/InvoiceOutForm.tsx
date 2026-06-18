@@ -20,7 +20,7 @@ import {
   useInvoiceContractSelect,
 } from '@/pages/Invoice/invoiceForm.shared';
 import { useInvoiceFormContractLink } from '@/pages/Invoice/useInvoiceFormContractLink';
-import { getSelectOptions as getInvoiceOutSelectOptions } from '@/services/wtu/invoiceOut.api';
+import { getInvoiceOutSelectOptions } from '@/services/wtu/invoiceOut.api';
 import { getSavedEntityId, selectApiDetail } from '@/utils/apiResponse';
 import type { ProFormInstance } from '@ant-design/pro-components';
 import { DrawerForm } from '@ant-design/pro-components';

@@ -2,7 +2,7 @@ import {
   addReceive,
   getReceive,
   getReceiveList,
-  getSelectOptions,
+  getReceiveSelectOptions,
   removeReceive,
   updateReceive,
 } from '@/services/wtu/receive.api';
@@ -58,7 +58,7 @@ export const useRemoveReceive = receiveCrud.useRemove;
 export const useReceiveSelectOptions = () => {
   return useQuery({
     queryKey: receiveKeys.selectOptions,
-    queryFn: getSelectOptions,
+    queryFn: getReceiveSelectOptions,
     staleTime: 10 * 60 * 1000,
   });
 };

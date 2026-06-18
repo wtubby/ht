@@ -37,6 +37,21 @@ export const BOND_TYPE_ICONS = {
   民工保证金: TeamOutlined,
 } as const satisfies Record<BondType, typeof SafetyOutlined>;
 
+/** 合同约定需登记、但尚未建立台账的保证金类型 */
+export const getPendingBondTypes = (
+  contract: Pick<API.SubContract, 'bonds' | 'bond_perf_req' | 'bond_labor_req'>,
+): BondType[] => {
+  const registered = new Set((contract.bonds ?? []).map((b) => b.bond_type));
+  const items: BondType[] = [];
+  if (contract.bond_perf_req && !registered.has('履约保证金')) {
+    items.push('履约保证金');
+  }
+  if (contract.bond_labor_req && !registered.has('民工保证金')) {
+    items.push('民工保证金');
+  }
+  return items;
+};
+
 export const DEFAULT_RATIO_BY_TYPE: Record<BondType, number> = {
   履约保证金: 5,
   民工保证金: 2,

@@ -8,17 +8,18 @@ import {
   RECORD_DETAIL_DRAWER_BODY_STYLE,
   RECORD_DETAIL_DRAWER_WIDTH,
 } from '@/components/RecordDetail/shared';
-import { MODULE_COLORS } from '@/constants/colors';
+import { MODULE_COLORS, UI_COLORS } from '@/constants/colors';
 import { getContractStatusColor, getContractTypeColor } from '@/constants/statusColors';
 import {
+  fetchInvoiceInsQuery,
+  fetchPaymentsQuery,
   subContractKeys,
-  useInvoiceIns,
-  usePayments,
   useSubContract,
   useSubContractFiles,
 } from '@/hooks';
 import { useFilePreview } from '@/hooks/useFilePreview';
 import type { BondCreatePreset, BondType } from '@/pages/Bond/bond.shared';
+import { getPendingBondTypes } from '@/pages/Bond/bond.shared';
 import BondDetail from '@/pages/Bond/BondDetail';
 import BondForm from '@/pages/Bond/BondForm';
 import { calcProgressPct } from '@/utils/format';
@@ -28,8 +29,8 @@ import {
   FileTextOutlined,
   SafetyOutlined,
 } from '@ant-design/icons';
-import { App, Button, Card, Col, Descriptions, Drawer, Row, Spin, Tabs, Tag } from 'antd';
-import { useQueryClient } from '@tanstack/react-query';
+import { App, Badge, Button, Card, Col, Descriptions, Drawer, Row, Spin, Tabs, Tag, Tooltip } from 'antd';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import InvoiceInTableCard from './InvoiceInTableCard';
 import PaymentTableCard from './PaymentTableCard';
@@ -150,12 +151,18 @@ const SubContractDetail: React.FC<SubContractDetailProps> = ({
     data: paymentsRes,
     isLoading: paymentsLoading,
     isFetching: paymentsFetching,
-  } = usePayments(relatedListParams, relatedEnabled);
+  } = useQuery({
+    ...fetchPaymentsQuery(relatedListParams),
+    enabled: relatedEnabled,
+  });
   const {
     data: invoicesRes,
     isLoading: invoicesLoading,
     isFetching: invoicesFetching,
-  } = useInvoiceIns(relatedListParams, relatedEnabled);
+  } = useQuery({
+    ...fetchInvoiceInsQuery(relatedListParams),
+    enabled: relatedEnabled,
+  });
   const contractFilesEnabled = relatedEnabled && !!mainContractId;
   const {
     data: contractFiles = [],
@@ -232,6 +239,10 @@ const SubContractDetail: React.FC<SubContractDetailProps> = ({
   );
 
   const bondCount = displayRecord?.bonds?.length ?? 0;
+  const pendingBondTypes = useMemo(
+    () => (displayRecord ? getPendingBondTypes(displayRecord) : []),
+    [displayRecord],
+  );
 
   // 金额统计卡片数据
   const statCards = useMemo(
@@ -434,10 +445,24 @@ const SubContractDetail: React.FC<SubContractDetailProps> = ({
               {
                 key: 'bonds',
                 label: (
-                  <span>
-                    <SafetyOutlined style={{ color: MODULE_COLORS.bond.color }} />
-                    担保 ({bondCount})
-                  </span>
+                  <Tooltip
+                    title={
+                      pendingBondTypes.length > 0
+                        ? `待登记：${pendingBondTypes.join('、')}`
+                        : undefined
+                    }
+                  >
+                    <Badge
+                      dot={pendingBondTypes.length > 0}
+                      color={UI_COLORS.actionWarning}
+                      offset={[6, 0]}
+                    >
+                      <span>
+                        <SafetyOutlined style={{ color: MODULE_COLORS.bond.color }} />
+                        担保 ({bondCount})
+                      </span>
+                    </Badge>
+                  </Tooltip>
                 ),
                 children: (
                   <SubContractBondDetailSection

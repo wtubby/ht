@@ -2,7 +2,7 @@ import {
   addPayment,
   getPayment,
   getPayments,
-  getSelectOptions,
+  getPaymentSelectOptions,
   removePayment,
   updatePayment,
 } from '@/services/wtu/payment.api';
@@ -49,8 +49,6 @@ const paymentKeys = {
   selectOptions: paymentSelectOptionsKey,
 };
 
-/** 详情页内嵌关联列表（如 SubContractDetail），非 ProTable 列表页使用 */
-export const usePayments = paymentCrud.useList;
 export const usePayment = paymentCrud.useDetail;
 export const useAddPayment = paymentCrud.useAdd;
 export const useUpdatePayment = paymentCrud.useUpdate;
@@ -60,7 +58,7 @@ export const useRemovePayment = paymentCrud.useRemove;
 export const usePaymentSelectOptions = () => {
   return useQuery({
     queryKey: paymentKeys.selectOptions,
-    queryFn: getSelectOptions,
+    queryFn: getPaymentSelectOptions,
     staleTime: 10 * 60 * 1000,
   });
 };
@@ -69,4 +67,10 @@ export const usePaymentSelectOptions = () => {
 export const fetchPaymentQuery = (id: number) => ({
   queryKey: paymentKeys.payment(id),
   queryFn: () => getPayment(id),
+});
+
+/** React Query fetchQuery 配置（内嵌关联列表 / 命令式拉列表） */
+export const fetchPaymentsQuery = (params: Parameters<typeof getPayments>[0]) => ({
+  queryKey: paymentKeys.payments(params),
+  queryFn: () => getPayments(params),
 });

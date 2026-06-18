@@ -1,6 +1,10 @@
 import { getBondDisplayStatusColor, getBondTypeColor } from '@/constants/statusColors';
 import type { BondType } from '@/pages/Bond/bond.shared';
-import { calcBondRatioPercent, formatBondStatusLabel } from '@/pages/Bond/bond.shared';
+import {
+  calcBondRatioPercent,
+  formatBondStatusLabel,
+  getPendingBondTypes,
+} from '@/pages/Bond/bond.shared';
 import { formatAmount, formatAmountOrDash } from '@/utils/format';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ProColumns } from '@ant-design/pro-components';
@@ -43,17 +47,7 @@ const SubContractBondDetailSection: React.FC<SubContractBondDetailSectionProps> 
 }) => {
   const bonds = contract.bonds ?? [];
 
-  const pendingTypes = useMemo(() => {
-    const registered = new Set(bonds.map((b) => b.bond_type));
-    const items: BondType[] = [];
-    if (contract.bond_perf_req && !registered.has('履约保证金')) {
-      items.push('履约保证金');
-    }
-    if (contract.bond_labor_req && !registered.has('民工保证金')) {
-      items.push('民工保证金');
-    }
-    return items;
-  }, [contract, bonds]);
+  const pendingTypes = useMemo(() => getPendingBondTypes(contract), [contract]);
 
   const bondColumns = useMemo<ProColumns<BondRow>[]>(
     () => [

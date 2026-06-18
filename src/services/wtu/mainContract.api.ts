@@ -58,7 +58,7 @@ export async function removeMainContract(id: number, options?: { [key: string]: 
 }
 
 /** 获取单位列表（用于表单选择） GET /api/main-contracts/select-options */
-export async function getSelectOptions(options?: { [key: string]: any }) {
+export async function getMainContractSelectOptions(options?: { [key: string]: any }) {
   return apiGet<{
     success: boolean;
     data: {

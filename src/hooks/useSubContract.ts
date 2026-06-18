@@ -1,7 +1,7 @@
 import { getFiles } from '@/services/wtu/file.api';
 import {
   addSubContract,
-  getSelectOptions,
+  getSubContractSelectOptions,
   getSubContract,
   getSubContracts,
   removeSubContract,
@@ -21,7 +21,7 @@ function getSubContractFromCache(cached: unknown): API.SubContract | undefined {
   return wrapped.data ?? (cached as API.SubContract);
 }
 
-function resolveMainContractIdsForSubContractMutation(
+function resolveMainContractIds(
   queryClient: QueryClient,
   context?: CacheInvalidationContext,
 ): number[] {
@@ -87,7 +87,7 @@ const subContractCrud = createCrudHooks<
 
 /** 分包增删改后刷新所属总包详情页关联数据 */
 registerCacheChild('subContracts', (queryClient, context) => {
-  const mainContractIds = resolveMainContractIdsForSubContractMutation(queryClient, context);
+  const mainContractIds = resolveMainContractIds(queryClient, context);
   if (mainContractIds.length > 0) {
     mainContractIds.forEach((mainContractId) => {
       queryClient.invalidateQueries({ queryKey: ['mainContractRelated', mainContractId] });
@@ -137,7 +137,7 @@ export const useSubContractFiles = (
 export const useSubContractSelectOptions = () => {
   return useQuery({
     queryKey: subContractKeys.subContractSelectOptions,
-    queryFn: getSelectOptions,
+    queryFn: getSubContractSelectOptions,
     staleTime: 10 * 60 * 1000,
   });
 };

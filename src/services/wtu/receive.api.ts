@@ -52,7 +52,7 @@ export async function removeReceive(id: number, options?: { [key: string]: any }
 }
 
 /** 获取选择项（总包合同列表） GET /api/receives/select-options */
-export async function getSelectOptions(options?: { [key: string]: any }) {
+export async function getReceiveSelectOptions(options?: { [key: string]: any }) {
   return apiGet<{
     success: boolean;
     data: {

@@ -61,7 +61,7 @@ export async function removeInvoiceIn(id: number, options?: { [key: string]: any
 }
 
 /** 获取选择项(分包合同列表) GET /api/invoice-in/select-options */
-export async function getSelectOptions(
+export async function getInvoiceInSelectOptions(
   params?: {
     search?: string;
     limit?: number;

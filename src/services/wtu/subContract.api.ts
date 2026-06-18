@@ -50,7 +50,7 @@ export async function removeSubContract(id: number, options?: { [key: string]: a
 }
 
 /** 获取选择项（总包合同和单位列表） GET /api/sub-contracts/select-options */
-export async function getSelectOptions(options?: { [key: string]: any }) {
+export async function getSubContractSelectOptions(options?: { [key: string]: any }) {
   return apiGet<{
     success: boolean;
     data: {

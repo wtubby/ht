@@ -3,7 +3,7 @@ import {
   getMainContract,
   getMainContractRelated,
   getMainContracts,
-  getSelectOptions,
+  getMainContractSelectOptions,
   removeMainContract,
   updateMainContract,
 } from '@/services/wtu/mainContract.api';
@@ -100,7 +100,7 @@ export const useMainContractRelated = (id?: number, enabled = true) => {
 export const useCompaniesForSelect = () => {
   return useQuery({
     queryKey: mainContractKeys.companiesForSelect,
-    queryFn: getSelectOptions,
+    queryFn: getMainContractSelectOptions,
     staleTime: 10 * 60 * 1000,
   });
 };

@@ -40,12 +40,12 @@ export {
 // 发票 Hooks (进项 + 销项)
 export {
   fetchInvoiceInQuery,
+  fetchInvoiceInsQuery,
   fetchInvoiceOutQuery,
   resolveInvoiceBuyerSeller,
   useAddInvoiceIn,
   useAddInvoiceOut,
   useInvoiceIn,
-  useInvoiceIns,
   useInvoiceInSelectOptions,
   useInvoiceOut,
   useInvoiceOutSelectOptions,
@@ -68,9 +68,9 @@ export {
 // 付款 Hooks
 export {
   fetchPaymentQuery,
+  fetchPaymentsQuery,
   useAddPayment,
   usePayment,
-  usePayments,
   usePaymentSelectOptions,
   useRemovePayment,
   useUpdatePayment,

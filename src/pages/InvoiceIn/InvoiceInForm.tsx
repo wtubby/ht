@@ -10,7 +10,7 @@ import {
   useInvoiceContractSelect,
 } from '@/pages/Invoice/invoiceForm.shared';
 import { useInvoiceFormContractLink } from '@/pages/Invoice/useInvoiceFormContractLink';
-import { getSelectOptions as getInvoiceInSelectOptions } from '@/services/wtu/invoiceIn.api';
+import { getInvoiceInSelectOptions } from '@/services/wtu/invoiceIn.api';
 import { selectApiDetail, getSavedEntityId } from '@/utils/apiResponse';
 import {
   fetchInvoiceInQuery,

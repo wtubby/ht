@@ -48,7 +48,7 @@ export async function removePayment(id: number, options?: { [key: string]: any }
 }
 
 /** 获取选择项（分包合同列表） GET /api/payments/select-options */
-export async function getSelectOptions(options?: { [key: string]: any }) {
+export async function getPaymentSelectOptions(options?: { [key: string]: any }) {
   return apiGet<{
     success: boolean;
     data: {

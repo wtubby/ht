@@ -2,7 +2,7 @@ import {
   addInvoiceIn,
   getInvoiceIn,
   getInvoiceIns,
-  getSelectOptions as getInvoiceInSelectOptions,
+  getInvoiceInSelectOptions,
   removeInvoiceIn,
   updateInvoiceIn,
 } from '@/services/wtu/invoiceIn.api';
@@ -10,7 +10,7 @@ import {
   addInvoiceOut,
   getInvoiceOut,
   getInvoiceOuts,
-  getSelectOptions as getInvoiceOutSelectOptions,
+  getInvoiceOutSelectOptions,
   removeInvoiceOut,
   updateInvoiceOut,
 } from '@/services/wtu/invoiceOut.api';
@@ -121,8 +121,6 @@ const invoiceOutKeys = {
   selectOptions: invoiceOutSelectOptionsKey,
 };
 
-/** 详情页内嵌关联列表（如 SubContractDetail），非 ProTable 列表页使用 */
-export const useInvoiceIns = invoiceInCrud.useList;
 export const useInvoiceIn = invoiceInCrud.useDetail;
 export const useAddInvoiceIn = invoiceInCrud.useAdd;
 export const useUpdateInvoiceIn = invoiceInCrud.useUpdate;
@@ -155,6 +153,12 @@ export const useInvoiceOutSelectOptions = (params?: { search?: string; limit?: n
 export const fetchInvoiceInQuery = (id: number) => ({
   queryKey: invoiceInKeys.invoiceIn(id),
   queryFn: () => getInvoiceIn(id),
+});
+
+/** React Query fetchQuery 配置（内嵌关联列表 / 命令式拉列表） */
+export const fetchInvoiceInsQuery = (params: Parameters<typeof getInvoiceIns>[0]) => ({
+  queryKey: invoiceInKeys.invoiceIns(params),
+  queryFn: () => getInvoiceIns(params),
 });
 
 export const fetchInvoiceOutQuery = (id: number) => ({

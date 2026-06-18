@@ -2,7 +2,7 @@ import {
   addBond,
   getBond,
   getBonds,
-  getSelectOptions,
+  getBondSelectOptions,
   refundBond,
   removeBond,
   updateBond,
@@ -62,7 +62,7 @@ export const useRemoveBond = bondCrud.useRemove;
 export const useBondSelectOptions = (onlyPending = true, enabled = true) => {
   return useQuery({
     queryKey: onlyPending ? bondKeys.pendingOptions : bondKeys.selectOptions,
-    queryFn: () => getSelectOptions(onlyPending ? { only_pending: true } : undefined),
+    queryFn: () => getBondSelectOptions(onlyPending ? { only_pending: true } : undefined),
     enabled,
     staleTime: 10 * 60 * 1000,
   });

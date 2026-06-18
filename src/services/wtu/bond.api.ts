@@ -53,7 +53,7 @@ export async function refundBond(
 }
 
 /** 获取选择项（分包合同列表） GET /api/bonds/select-options */
-export async function getSelectOptions(
+export async function getBondSelectOptions(
   params?: { only_pending?: boolean },
   options?: { [key: string]: any },
 ) {
