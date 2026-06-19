@@ -7,6 +7,7 @@ import {
 import { MODULE_COLORS } from '@/constants/colors';
 import { useMainContract, useMainContractRelated } from '@/hooks';
 import { useFilePreview } from '@/hooks/useFilePreview';
+import { selectApiDetail } from '@/utils/apiResponse';
 import {
   DollarOutlined,
   FileDoneOutlined,
@@ -46,9 +47,8 @@ const MainContractDetail: React.FC<MainContractDetailProps> = ({
     isFetching: basicFetching,
     isError: basicError,
   } = useMainContract(recordId, detailEnabled);
-  const typedBasic = detailResponse as { success?: boolean; data?: API.MainContract } | undefined;
   const displayRecord =
-    typedBasic?.success && typedBasic.data ? typedBasic.data : (currentRecord ?? null);
+    selectApiDetail<API.MainContract>(detailResponse) ?? currentRecord ?? null;
 
   const {
     data: relatedData,

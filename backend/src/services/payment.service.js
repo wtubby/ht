@@ -90,6 +90,18 @@ async function attachTotalPaid(data) {
   return data;
 }
 
+async function buildPaymentDetail(id) {
+  const payment = await findPaymentWithRelations(id);
+  if (!payment) {
+    throw new ApiError(404, '付款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+
+  const data = payment.toJSON();
+  await attachTotalPaid(data);
+  data.has_files = await checkFileStatus(FILE_MODULE, id);
+  return data;
+}
+
 const PAYMENT_WRITABLE_FIELDS = [
   'payment_amount',
   'sub_contract_id',
@@ -118,7 +130,7 @@ async function createPayment(body, userId) {
 
   const payment = await Payment.create(data);
 
-  return findPaymentWithRelations(payment.id);
+  return buildPaymentDetail(payment.id);
 }
 
 /**
@@ -146,15 +158,7 @@ async function findAllPayments(query) {
  * 获取单个付款
  */
 async function findOnePayment(id) {
-  const payment = await findPaymentWithRelations(id);
-  if (!payment) {
-    throw new ApiError(404, '付款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
-
-  const data = payment.toJSON();
-  await attachTotalPaid(data);
-  data.has_files = await checkFileStatus(FILE_MODULE, payment.id);
-  return data;
+  return buildPaymentDetail(id);
 }
 
 /**
@@ -176,10 +180,7 @@ async function updatePayment(id, body, userId) {
     throw new ApiError(404, '付款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
   }
 
-  const updatedPayment = await findPaymentWithRelations(id);
-  const data = updatedPayment.toJSON();
-  data.has_files = await checkFileStatus(FILE_MODULE, updatedPayment.id);
-  return data;
+  return buildPaymentDetail(id);
 }
 
 /**

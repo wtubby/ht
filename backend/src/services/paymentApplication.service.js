@@ -133,10 +133,21 @@ async function getApplicationData(paymentId) {
         raw: true,
       });
 
+      const paymentRecords = await Payment.findAll({
+        where: { sub_contract_id: subContract.id },
+        attributes: ['payment_amount', 'payment_date'],
+        order: [['payment_date', 'ASC']],
+      });
+
+      const paymentsByOrder = paymentRecords
+        .slice(0, 4)
+        .map((p) => parseFloat(p.payment_amount) || 0);
+
       return {
         ...subContract.toJSON(),
         total_paid: parseFloat(paymentResult?.total || 0),
         total_invoiced: parseFloat(invoiceInResult?.total || 0),
+        paymentsByOrder,
       };
     }),
   );
@@ -179,6 +190,7 @@ async function getApplicationData(paymentId) {
       contract_name: currentSubContract.contract_name,
       contract_type: currentSubContract.contract_type,
       amount_contract: currentSubContract.amount_contract,
+      paymentsByOrder: subContractsWithPayments[0]?.paymentsByOrder ?? [],
     },
   };
 }

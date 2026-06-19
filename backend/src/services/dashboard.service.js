@@ -170,108 +170,112 @@ async function getStatistics(query) {
     endDate,
   } = query;
 
-  const mainContractStats = await MainContract.findAll({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('amount_contract')), 'total_amount'],
-      [sequelize.fn('SUM', sequelize.col('amount_settlement')), 'total_settlement'],
-    ],
-    where: buildDateFieldFilter('date_signed', timeRange, startDate, endDate),
-    raw: true,
-  });
-
-  const mainContractStatusDistribution = await MainContract.findAll({
-    attributes: [
-      'contract_status',
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-    ],
-    group: ['contract_status'],
-    raw: true,
-  }).then(result => result.map(item => mapDistributionItem(item, 'contract_status')));
-
-  const subContractStats = await SubContract.findAll({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('amount_contract')), 'total_amount'],
-      [sequelize.fn('SUM', sequelize.col('amount_settlement')), 'total_settlement'],
-    ],
-    where: buildDateFieldFilter('date_signed', timeRange, startDate, endDate),
-    raw: true,
-  });
-
-  const subContractTypeDistribution = await SubContract.findAll({
-    attributes: [
-      'contract_type',
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-    ],
-    group: ['contract_type'],
-    raw: true,
-  }).then(result => result.map(item => mapDistributionItem(item, 'contract_type')));
-
-  const receiveStats = await Receive.findAll({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('receive_amount')), 'total_amount'],
-    ],
-    where: buildDateFieldFilter('receive_date', timeRange, startDate, endDate),
-    raw: true,
-  });
-
-  const bondStatusDistribution = await Bond.findAll({
-    attributes: ['status', 'bond_form', 'date_end', 'amount'],
-    raw: true,
-  }).then((bonds) => {
-    const statusMap = {};
-    bonds.forEach((bond) => {
-      const displayStatus = resolveBondDisplayStatus(bond);
-      if (!statusMap[displayStatus]) {
-        statusMap[displayStatus] = {
-          bond_status: displayStatus,
-          count: 0,
-          total_amount: 0,
-        };
-      }
-      statusMap[displayStatus].count += 1;
-      statusMap[displayStatus].total_amount += parseFloat(bond.amount || 0);
-    });
-    return Object.values(statusMap).map((item) => mapDistributionItem(item, 'bond_status'));
-  });
-
-  const invoiceOutStats = await InvoiceOut.findAll({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'total_amount'],
-    ],
-    where: buildDateFieldFilter('invoice_date', timeRange, startDate, endDate),
-    raw: true,
-  });
-
-  const invoiceInStats = await InvoiceIn.findAll({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'total_amount'],
-    ],
-    where: buildDateFieldFilter('invoice_date', timeRange, startDate, endDate),
-    raw: true,
-  });
-
-  const fileStats = await File.findAll({
-    attributes: [
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('file_size')), 'total_size'],
-    ],
-    where: buildDateFieldFilter('uploaded_at', timeRange, startDate, endDate),
-    raw: true,
-  });
-
-  const fileModuleDistribution = await File.findAll({
-    attributes: [
-      'file_module',
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-    ],
-    group: ['file_module'],
-    raw: true,
-  }).then(result => result.map(item => mapDistributionItem(item, 'file_module')));
+  const [
+    mainContractStats,
+    mainContractStatusDistribution,
+    subContractStats,
+    subContractTypeDistribution,
+    receiveStats,
+    bondStatusDistribution,
+    invoiceOutStats,
+    invoiceInStats,
+    fileStats,
+    fileModuleDistribution,
+  ] = await Promise.all([
+    MainContract.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('amount_contract')), 'total_amount'],
+        [sequelize.fn('SUM', sequelize.col('amount_settlement')), 'total_settlement'],
+      ],
+      where: buildDateFieldFilter('date_signed', timeRange, startDate, endDate),
+      raw: true,
+    }),
+    MainContract.findAll({
+      attributes: [
+        'contract_status',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: ['contract_status'],
+      raw: true,
+    }).then((result) => result.map((item) => mapDistributionItem(item, 'contract_status'))),
+    SubContract.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('amount_contract')), 'total_amount'],
+        [sequelize.fn('SUM', sequelize.col('amount_settlement')), 'total_settlement'],
+      ],
+      where: buildDateFieldFilter('date_signed', timeRange, startDate, endDate),
+      raw: true,
+    }),
+    SubContract.findAll({
+      attributes: [
+        'contract_type',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: ['contract_type'],
+      raw: true,
+    }).then((result) => result.map((item) => mapDistributionItem(item, 'contract_type'))),
+    Receive.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('receive_amount')), 'total_amount'],
+      ],
+      where: buildDateFieldFilter('receive_date', timeRange, startDate, endDate),
+      raw: true,
+    }),
+    Bond.findAll({
+      attributes: ['status', 'bond_form', 'date_end', 'amount'],
+      raw: true,
+    }).then((bonds) => {
+      const statusMap = {};
+      bonds.forEach((bond) => {
+        const displayStatus = resolveBondDisplayStatus(bond);
+        if (!statusMap[displayStatus]) {
+          statusMap[displayStatus] = {
+            bond_status: displayStatus,
+            count: 0,
+            total_amount: 0,
+          };
+        }
+        statusMap[displayStatus].count += 1;
+        statusMap[displayStatus].total_amount += parseFloat(bond.amount || 0);
+      });
+      return Object.values(statusMap).map((item) => mapDistributionItem(item, 'bond_status'));
+    }),
+    InvoiceOut.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'total_amount'],
+      ],
+      where: buildDateFieldFilter('invoice_date', timeRange, startDate, endDate),
+      raw: true,
+    }),
+    InvoiceIn.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'total_amount'],
+      ],
+      where: buildDateFieldFilter('invoice_date', timeRange, startDate, endDate),
+      raw: true,
+    }),
+    File.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('file_size')), 'total_size'],
+      ],
+      where: buildDateFieldFilter('uploaded_at', timeRange, startDate, endDate),
+      raw: true,
+    }),
+    File.findAll({
+      attributes: [
+        'file_module',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: ['file_module'],
+      raw: true,
+    }).then((result) => result.map((item) => mapDistributionItem(item, 'file_module'))),
+  ]);
 
   const totalContractAmount = parseFloat(mainContractStats[0].total_amount || 0);
   const totalReceiveAmount = parseFloat(receiveStats[0].total_amount || 0);
@@ -332,24 +336,25 @@ async function getProjectReceiveProgress(query) {
 
   const receiveDateFilter = buildRangeFilter(timeRange, startDate, endDate);
 
-  const receiveStats = await Receive.findAll({
-    attributes: [
-      'main_contract_id',
-      [sequelize.fn('SUM', sequelize.col('receive_amount')), 'received_amount'],
-    ],
-    where: hasRangeFilter(receiveDateFilter) ? { receive_date: receiveDateFilter } : undefined,
-    group: ['main_contract_id'],
-    raw: true,
-  });
+  const [receiveStats, contracts] = await Promise.all([
+    Receive.findAll({
+      attributes: [
+        'main_contract_id',
+        [sequelize.fn('SUM', sequelize.col('receive_amount')), 'received_amount'],
+      ],
+      where: hasRangeFilter(receiveDateFilter) ? { receive_date: receiveDateFilter } : undefined,
+      group: ['main_contract_id'],
+      raw: true,
+    }),
+    MainContract.findAll({
+      attributes: ['id', 'contract_name', 'amount_contract'],
+      raw: true,
+    }),
+  ]);
 
   const receiveMap = {};
   receiveStats.forEach(stat => {
     receiveMap[stat.main_contract_id] = parseFloat(stat.received_amount);
-  });
-
-  const contracts = await MainContract.findAll({
-    attributes: ['id', 'contract_name', 'amount_contract'],
-    raw: true,
   });
 
   return contracts
@@ -384,53 +389,52 @@ async function getTrendData(query) {
 
   const { type, dateFormat, whereCondition } = resolveTrendConfig(timeRange, startDate, endDate);
 
-  const contractTrend = await MainContract.findAll({
-    attributes: [
-      [formatDateColumn('date_signed', dateFormat), 'date'],
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('amount_contract')), 'amount'],
-    ],
-    where: { date_signed: whereCondition },
-    group: [formatDateColumn('date_signed', dateFormat)],
-    order: [[formatDateColumn('date_signed', dateFormat), 'ASC']],
-    raw: true,
-  });
-
-  const receiveTrend = await Receive.findAll({
-    attributes: [
-      [formatDateColumn('receive_date', dateFormat), 'date'],
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('receive_amount')), 'amount'],
-    ],
-    where: { receive_date: whereCondition },
-    group: [formatDateColumn('receive_date', dateFormat)],
-    order: [[formatDateColumn('receive_date', dateFormat), 'ASC']],
-    raw: true,
-  });
-
-  const invoiceOutTrend = await InvoiceOut.findAll({
-    attributes: [
-      [formatDateColumn('invoice_date', dateFormat), 'date'],
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'amount'],
-    ],
-    where: { invoice_date: whereCondition },
-    group: [formatDateColumn('invoice_date', dateFormat)],
-    order: [[formatDateColumn('invoice_date', dateFormat), 'ASC']],
-    raw: true,
-  });
-
-  const invoiceInTrend = await InvoiceIn.findAll({
-    attributes: [
-      [formatDateColumn('invoice_date', dateFormat), 'date'],
-      [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'amount'],
-    ],
-    where: { invoice_date: whereCondition },
-    group: [formatDateColumn('invoice_date', dateFormat)],
-    order: [[formatDateColumn('invoice_date', dateFormat), 'ASC']],
-    raw: true,
-  });
+  const [contractTrend, receiveTrend, invoiceOutTrend, invoiceInTrend] = await Promise.all([
+    MainContract.findAll({
+      attributes: [
+        [formatDateColumn('date_signed', dateFormat), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('amount_contract')), 'amount'],
+      ],
+      where: { date_signed: whereCondition },
+      group: [formatDateColumn('date_signed', dateFormat)],
+      order: [[formatDateColumn('date_signed', dateFormat), 'ASC']],
+      raw: true,
+    }),
+    Receive.findAll({
+      attributes: [
+        [formatDateColumn('receive_date', dateFormat), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('receive_amount')), 'amount'],
+      ],
+      where: { receive_date: whereCondition },
+      group: [formatDateColumn('receive_date', dateFormat)],
+      order: [[formatDateColumn('receive_date', dateFormat), 'ASC']],
+      raw: true,
+    }),
+    InvoiceOut.findAll({
+      attributes: [
+        [formatDateColumn('invoice_date', dateFormat), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'amount'],
+      ],
+      where: { invoice_date: whereCondition },
+      group: [formatDateColumn('invoice_date', dateFormat)],
+      order: [[formatDateColumn('invoice_date', dateFormat), 'ASC']],
+      raw: true,
+    }),
+    InvoiceIn.findAll({
+      attributes: [
+        [formatDateColumn('invoice_date', dateFormat), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('invoice_amount')), 'amount'],
+      ],
+      where: { invoice_date: whereCondition },
+      group: [formatDateColumn('invoice_date', dateFormat)],
+      order: [[formatDateColumn('invoice_date', dateFormat), 'ASC']],
+      raw: true,
+    }),
+  ]);
 
   return {
     contractTrend: filterValidTrendRows(contractTrend),

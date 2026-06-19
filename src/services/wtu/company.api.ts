@@ -16,7 +16,7 @@ export async function getCompanies(
 
 /** 获取单个单位详情 GET /api/companies/:id */
 export async function getCompany(id: number, options?: { [key: string]: any }) {
-  return apiGet<API.Company>(`/api/companies/${id}`, undefined, options);
+  return apiGet<{ success: boolean; data: API.Company }>(`/api/companies/${id}`, undefined, options);
 }
 
 /** 新建单位 POST /api/companies（bankAccounts 与单位信息同一事务提交） */

@@ -60,7 +60,7 @@ declare namespace API {
     address?: string;
     remarks?: string;
     company_status: string;
-    /** 关联合同份数（总包 + 分包，列表接口返回） */
+    /** 关联合同份数（总包 + 分包，列表/详情接口返回） */
     contract_count?: number;
     created_by: number;
     created_at: string;
@@ -308,9 +308,8 @@ declare namespace API {
         id: number;
         receive_amount: number;
         receive_date: string;
-        payment_order?: number;
       }>;
-      receivesByOrder: number[]; // 按期次汇总的收款金额数组 [0]第一次, [1]第二次, [2]第三次
+      receivesByOrder: number[]; // 按时间排序的收款金额数组 [0]第一次, [1]第二次, [2]第三次, [3]第四次（最多4条）
       invoices: Array<{
         // 主合同销项发票记录
         id: number;
@@ -342,6 +341,7 @@ declare namespace API {
       contract_name: string;
       contract_type: string;
       amount_contract: number;
+      paymentsByOrder: number[]; // 按时间排序的付款金额数组 [0]第一次, [1]第二次, [2]第三次, [3]第四次（最多4条）
     };
   };
 

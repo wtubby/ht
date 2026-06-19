@@ -239,10 +239,10 @@ export const PaymentApplicationTemplate = forwardRef<
                     )}
                   </td>
                   <td>{formatAmountOrDash(data.allSubContracts[0]?.total_invoiced || 0)}</td>
-                  <td>{formatAmountOrDash(data.summary.total_paid_amount)}</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
+                  <td>{formatAmountOrDash(currentContract.paymentsByOrder?.[0])}</td>
+                  <td>{formatAmountOrDash(currentContract.paymentsByOrder?.[1])}</td>
+                  <td>{formatAmountOrDash(currentContract.paymentsByOrder?.[2])}</td>
+                  <td>{formatAmountOrDash(currentContract.paymentsByOrder?.[3])}</td>
                   <td>{formatAmountOrDash(data.summary.total_paid_amount)}</td>
                 </tr>
               ) : (

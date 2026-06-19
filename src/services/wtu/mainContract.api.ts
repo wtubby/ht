@@ -17,7 +17,7 @@ export async function getMainContracts(
 
 /** 获取单个总包合同详情 GET /api/main-contracts/:id */
 export async function getMainContract(id: number, options?: { [key: string]: any }) {
-  return apiGet<API.MainContract>(`/api/main-contracts/${id}`, undefined, options);
+  return apiGet<{ success: boolean; data: API.MainContract }>(`/api/main-contracts/${id}`, undefined, options);
 }
 
 /** 获取总包合同详情页关联数据 GET /api/main-contracts/:id/related */
@@ -36,7 +36,7 @@ export async function getMainContractRelated(id: number, options?: { [key: strin
 
 /** 新建总包合同 POST /api/main-contracts */
 export async function addMainContract(data: API.MainContract, options?: { [key: string]: any }) {
-  return apiPost<API.MainContract>('/api/main-contracts', data, options);
+  return apiPost<{ success: boolean; data: API.MainContract; message?: string }>('/api/main-contracts', data, options);
 }
 
 /** 更新总包合同 PUT /api/main-contracts/:id */

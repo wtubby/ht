@@ -70,6 +70,18 @@ async function attachTotalReceived(data) {
   return data;
 }
 
+async function buildReceiveDetail(id) {
+  const receive = await findReceiveWithRelations(id);
+  if (!receive) {
+    throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+
+  const data = receive.toJSON();
+  await attachTotalReceived(data);
+  data.has_files = await checkFileStatus(FILE_MODULE, id);
+  return data;
+}
+
 const RECEIVE_WRITABLE_FIELDS = [
   'receive_amount',
   'main_contract_id',
@@ -93,8 +105,7 @@ async function createReceive(body, userId) {
 
   const receive = await Receive.create(data);
 
-  const createdReceive = await findReceiveWithRelations(receive.id);
-  return createdReceive;
+  return buildReceiveDetail(receive.id);
 }
 
 /**
@@ -127,15 +138,7 @@ async function findAllReceives(query) {
  * 获取单个收款
  */
 async function findOneReceive(id) {
-  const receive = await findReceiveWithRelations(id);
-  if (!receive) {
-    throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
-
-  const data = receive.toJSON();
-  await attachTotalReceived(data);
-  data.has_files = await checkFileStatus(FILE_MODULE, id);
-  return data;
+  return buildReceiveDetail(id);
 }
 
 /**
@@ -155,7 +158,7 @@ async function updateReceive(id, body, userId) {
     throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
   }
 
-  return findReceiveWithRelations(id);
+  return buildReceiveDetail(id);
 }
 
 /**

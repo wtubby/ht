@@ -49,7 +49,7 @@ async function createCompany(body, userId) {
     }
 
     await t.commit();
-    return findCompanyWithRelations(company.id);
+    return enrichCompanyWithContractCount(await findCompanyWithRelations(company.id));
   } catch (error) {
     await t.rollback();
     if (error instanceof ApiError) throw error;
@@ -114,6 +114,14 @@ function attachContractCountsToCompanies(companies, countsMap) {
   });
 }
 
+async function enrichCompanyWithContractCount(company) {
+  const [enriched] = attachContractCountsToCompanies(
+    [company],
+    await getContractCountsByCompanyIds([company.id]),
+  );
+  return enriched;
+}
+
 /**
  * 获取单位列表
  */
@@ -143,7 +151,7 @@ async function findOneCompany(id) {
   if (!company) {
     throw new ApiError(404, '单位不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
   }
-  return company;
+  return enrichCompanyWithContractCount(company);
 }
 
 /**
@@ -168,7 +176,7 @@ async function updateCompany(id, body, userId) {
     }
 
     await t.commit();
-    return findCompanyWithRelations(id);
+    return enrichCompanyWithContractCount(await findCompanyWithRelations(id));
   } catch (error) {
     await t.rollback();
     if (error instanceof ApiError) throw error;

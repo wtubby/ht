@@ -6,6 +6,7 @@ import {
 } from '@/components/RecordDetail/shared';
 import { getCompanyStatusColor, getCompanyTypeColor } from '@/constants/statusColors';
 import { useCompany } from '@/hooks';
+import { selectApiDetail } from '@/utils/apiResponse';
 import { formatAmount } from '@/utils/format';
 import {
   BankOutlined,
@@ -47,14 +48,8 @@ const CompanyDetail: React.FC<CompanyDetailProps> = ({
     isFetching,
     isError,
   } = useCompany(recordId, detailEnabled);
-  const typedResponse = detailResponse as { data?: API.Company } | undefined;
-  const companyDetail = typedResponse?.data;
-  const displayRow = companyDetail
-    ? {
-        ...companyDetail,
-        contract_count: currentRecord?.contract_count ?? companyDetail.contract_count,
-      }
-    : currentRecord;
+  const companyDetail = selectApiDetail<API.Company>(detailResponse);
+  const displayRow = companyDetail ?? currentRecord;
   const detailLoading = detailEnabled && (isLoading || isFetching);
 
   useEffect(() => {
