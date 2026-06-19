@@ -22,6 +22,11 @@ const Receive = sequelize.define('Receive', {
     allowNull: false,
     comment: '付款方名称（发包单位）',
   },
+  payee_name: {
+    type: DataTypes.STRING(200),
+    allowNull: false,
+    comment: '收款方名称（承包单位）',
+  },
   account_name: {
     type: DataTypes.STRING(200),
     allowNull: true,

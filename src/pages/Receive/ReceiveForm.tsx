@@ -33,7 +33,7 @@ import {
   receiveFieldRules,
 } from './receiveForm.shared';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 interface ReceiveFormProps {
   visible: boolean;
@@ -50,6 +50,59 @@ interface ContractOption {
 
 const selectReceiveDetail = (response: unknown) => selectApiDetail<API.Receive>(response);
 
+interface PartySnapshotFieldsProps {
+  selectedContract: API.MainContract | null;
+}
+
+const PartySnapshotFields: React.FC<PartySnapshotFieldsProps> = ({ selectedContract }) => {
+  const payerName = (Form.useWatch('payer_name') as string | undefined) ?? '';
+  const payeeName = (Form.useWatch('payee_name') as string | undefined) ?? '';
+  const currentPartyA = selectedContract?.partyA?.company_name?.trim() ?? '';
+  const currentPartyB = selectedContract?.partyB?.company_name?.trim() ?? '';
+
+  const payerOutdated =
+    !!currentPartyA && !!payerName.trim() && payerName.trim() !== currentPartyA;
+  const payeeOutdated =
+    !!currentPartyB && !!payeeName.trim() && payeeName.trim() !== currentPartyB;
+
+  return (
+    <Row gutter={16}>
+      <Col span={12}>
+        <Form.Item
+          label="发包单位"
+          labelCol={{ span: 10 }}
+          wrapperCol={{ span: 14 }}
+          extra={
+            payerOutdated ? (
+              <Text type="warning" style={{ fontSize: 12 }}>
+               已更名「{currentPartyA}」
+              </Text>
+            ) : null
+          }
+        >
+          {payerName || '-'}
+        </Form.Item>
+      </Col>
+      <Col span={12}>
+        <Form.Item
+          label="承包单位"
+          labelCol={{ span: 10 }}
+          wrapperCol={{ span: 14 }}
+          extra={
+            payeeOutdated ? (
+              <Text type="warning" style={{ fontSize: 12 }}>
+                当前合同承包单位为「{currentPartyB}」
+              </Text>
+            ) : null
+          }
+        >
+          {payeeName || '-'}
+        </Form.Item>
+      </Col>
+    </Row>
+  );
+};
+
 const ReceiveForm: React.FC<ReceiveFormProps> = ({
   visible,
   currentRecord,
@@ -64,8 +117,6 @@ const ReceiveForm: React.FC<ReceiveFormProps> = ({
   const [mainContracts, setMainContracts] = useState<API.MainContract[]>([]);
   const [receiveId, setReceiveId] = useState<number | null>(null);
   const [selectedMainContractId, setSelectedMainContractId] = useState<number | null>(null);
-  const [partyDisplay, setPartyDisplay] = useState({ payer: '', payee: '' });
-  const [displayContractAmount, setDisplayContractAmount] = useState<number | undefined>();
   const [canSubmit, setCanSubmit] = useState(false);
 
   const effectiveId = currentRecord?.id ?? receiveId ?? null;
@@ -87,8 +138,6 @@ const ReceiveForm: React.FC<ReceiveFormProps> = ({
     resetPartyBankAccounts();
     setReceiveId(null);
     setSelectedMainContractId(null);
-    setPartyDisplay({ payer: '', payee: '' });
-    setDisplayContractAmount(undefined);
     setCanSubmit(false);
     formRef.current?.resetFields();
   }, [resetPartyBankAccounts]);
@@ -146,21 +195,24 @@ const ReceiveForm: React.FC<ReceiveFormProps> = ({
     [mainContracts],
   );
 
+  const selectedContract = useMemo(() => {
+    if (selectedMainContractId == null) return null;
+    return mainContracts.find((c) => c.id === selectedMainContractId) ?? null;
+  }, [selectedMainContractId, mainContracts]);
+
+  const displayContractAmount = selectedContract?.amount_contract;
+
   const applyDetail = useCallback(
     (data: API.Receive) => {
       setReceiveId(data.id ?? null);
       setSelectedMainContractId(data.main_contract_id ?? null);
-      setPartyDisplay({
-        payer: data.payer_name || data.mainContract?.partyA?.company_name || '',
-        payee: data.mainContract?.partyB?.company_name || '',
-      });
-      setDisplayContractAmount(data.mainContract?.amount_contract ?? undefined);
       setCanSubmit(isReceiveRequiredFilled(data));
       hydratingRef.current = true;
       try {
         formRef.current?.resetFields();
         formRef.current?.setFieldsValue({
           ...data,
+          payee_name: data.payee_name ?? data.mainContract?.partyB?.company_name ?? '',
           receive_date: data.receive_date ? dayjs(data.receive_date) : null,
         });
       } finally {
@@ -230,12 +282,11 @@ const ReceiveForm: React.FC<ReceiveFormProps> = ({
     (value: number | undefined, option?: ContractOption | ContractOption[]) => {
       if (!value || !option || Array.isArray(option) || !option.extra) {
         setSelectedMainContractId(null);
-        setPartyDisplay({ payer: '', payee: '' });
-        setDisplayContractAmount(undefined);
         resetPartyBankAccounts();
         runIfActive(() => {
           formRef.current?.setFieldsValue({
             payer_name: undefined,
+            payee_name: undefined,
             ...getEmptyPartyBankAccountFieldValues(),
           });
         });
@@ -247,12 +298,11 @@ const ReceiveForm: React.FC<ReceiveFormProps> = ({
       const payeeName = contract.partyB?.company_name || '';
 
       setSelectedMainContractId(value);
-      setPartyDisplay({ payer: payerName, payee: payeeName });
-      setDisplayContractAmount(contract.amount_contract ?? undefined);
 
       runIfActive(() => {
         formRef.current?.setFieldsValue({
           payer_name: payerName,
+          payee_name: payeeName,
         });
       });
 
@@ -351,23 +401,17 @@ const ReceiveForm: React.FC<ReceiveFormProps> = ({
               }}
             />
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="发包单位" labelCol={{ span: 10 }} wrapperCol={{ span: 14 }}>
-                  {partyDisplay.payer || '-'}
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="承包单位" labelCol={{ span: 10 }} wrapperCol={{ span: 14 }}>
-                  {partyDisplay.payee || '-'}
-                </Form.Item>
-              </Col>
-            </Row>
+            <PartySnapshotFields selectedContract={selectedContract} />
 
             <ProFormText
               name="payer_name"
               hidden
               rules={receiveFieldRules.payer_name}
+            />
+            <ProFormText
+              name="payee_name"
+              hidden
+              rules={receiveFieldRules.payee_name}
             />
 
             <Row gutter={16}>

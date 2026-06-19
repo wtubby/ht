@@ -218,6 +218,7 @@ declare namespace API {
     receive_amount: number;
     main_contract_id: number;
     payer_name: string;
+    payee_name: string;
     account_name?: string;
     bank_name?: string;
     account_number?: string;

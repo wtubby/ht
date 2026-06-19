@@ -17,8 +17,10 @@ import { useFilePreview } from '@/hooks/useFilePreview';
 import { getFiles } from '@/services/wtu/file.api';
 import { formatCurrency } from '@/utils/format';
 import { CalendarOutlined, DollarOutlined, ProjectOutlined } from '@ant-design/icons';
-import { App, Card, Col, Drawer, Row, Spin, Tag } from 'antd';
-import React, { useEffect, useState } from 'react';
+import { App, Card, Col, Drawer, Row, Spin, Tag, Typography } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+
+const { Text } = Typography;
 
 interface ReceiveDetailProps {
   visible: boolean;
@@ -96,6 +98,14 @@ const ReceiveDetail: React.FC<ReceiveDetailProps> = ({ visible, currentRecord, o
 
   const receiveAmount = displayData?.receive_amount ?? 0;
   const mainContractAmount = displayData?.mainContract?.amount_contract;
+
+  const payerOutdated = useMemo(() => {
+    const payerName = displayData?.payer_name?.trim() ?? '';
+    const currentPartyA = displayData?.mainContract?.partyA?.company_name?.trim() ?? '';
+    return !!currentPartyA && !!payerName && payerName !== currentPartyA;
+  }, [displayData?.payer_name, displayData?.mainContract?.partyA?.company_name]);
+
+  const currentPartyAName = displayData?.mainContract?.partyA?.company_name?.trim() ?? '';
 
   return (
     <Drawer
@@ -235,7 +245,16 @@ const ReceiveDetail: React.FC<ReceiveDetailProps> = ({ visible, currentRecord, o
                   />
                   <DetailItem
                     label="付款方 (发包单位)"
-                    value={displayData.payer_name || '-'}
+                    value={
+                      <>
+                        <div>{displayData.payer_name || '-'}</div>
+                        {payerOutdated ? (
+                          <Text type="warning" style={{ fontSize: 12 }}>
+                            已更名「{currentPartyAName}」
+                          </Text>
+                        ) : null}
+                      </>
+                    }
                     span={12}
                   />
                   <DetailItem

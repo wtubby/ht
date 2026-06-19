@@ -7,6 +7,7 @@ export const RECEIVE_REQUIRED_FIELDS = [
   'receive_amount',
   'receive_status',
   'payer_name',
+  'payee_name',
 ] as const;
 
 const maxLengthRule = (max: number, label: string): Rule => ({
@@ -23,6 +24,10 @@ export const receiveFieldRules = {
     { required: true, message: '请输入付款方名称' },
     maxLengthRule(200, '付款方名称'),
   ],
+  payee_name: [
+    { required: true, message: '请输入收款方名称' },
+    maxLengthRule(200, '收款方名称'),
+  ],
   account_name: [maxLengthRule(200, '账户名称')],
   account_number: [maxLengthRule(30, '银行账号')],
   bank_name: [maxLengthRule(200, '开户银行')],
@@ -38,7 +43,8 @@ export const isReceiveRequiredFilled = (
     values.receive_date &&
     hasAmount &&
     values.receive_status &&
-    values.payer_name
+    values.payer_name &&
+    values.payee_name
   );
 };
 

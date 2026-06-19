@@ -41,6 +41,7 @@ function buildListWhere(query) {
   if (keyword) {
     condition[Op.or] = [
       { payer_name: { [Op.like]: `%${keyword}%` } },
+      { payee_name: { [Op.like]: `%${keyword}%` } },
       { account_name: { [Op.like]: `%${keyword}%` } },
     ];
   }
@@ -86,6 +87,7 @@ const RECEIVE_WRITABLE_FIELDS = [
   'receive_amount',
   'main_contract_id',
   'payer_name',
+  'payee_name',
   'account_name',
   'bank_name',
   'account_number',
