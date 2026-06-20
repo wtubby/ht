@@ -5,6 +5,10 @@ const ERROR_CODES = require('../utils/errorCodes');
 const { attachFileStatus, checkFileStatus } = require('../utils/fileStatusHelper');
 const { cleanupFiles } = require('../utils/fileCleanup');
 const { resolveListPagination } = require('../utils/listPagination');
+const {
+  getMainContractTotals,
+  resolveMainContractStatus,
+} = require('../utils/mainContractStatus');
 
 const {
   MainContract,
@@ -44,10 +48,23 @@ async function findMainContractWithRelations(id) {
   return MainContract.findByPk(id, { include: contractIncludes });
 }
 
+async function buildMainContractDetail(id) {
+  const mainContract = await findMainContractWithRelations(id);
+  if (!mainContract) {
+    throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+
+  const data = mainContract.toJSON();
+  data.has_files = await checkFileStatus(FILE_MODULE, id);
+  const totals = await getMainContractTotals(id);
+  data.total_received = totals.total_received;
+  data.total_invoiced = totals.total_invoiced;
+  return data;
+}
+
 const MAIN_CONTRACT_WRITABLE_FIELDS = [
   'contract_name',
   'contract_no',
-  'contract_status',
   'party_a_id',
   'party_b_id',
   'amount_contract',
@@ -67,10 +84,14 @@ async function createMainContract(body, userId) {
   for (const key of MAIN_CONTRACT_WRITABLE_FIELDS) {
     data[key] = body[key];
   }
+  data.contract_status = resolveMainContractStatus(data, {
+    total_received: 0,
+    total_invoiced: 0,
+  });
 
   const mainContract = await MainContract.create(data);
 
-  return findMainContractWithRelations(mainContract.id);
+  return buildMainContractDetail(mainContract.id);
 }
 
 /**
@@ -136,20 +157,18 @@ async function findAllMainContracts(query) {
  * 获取单个总包合同
  */
 async function findOneMainContract(id) {
-  const mainContract = await findMainContractWithRelations(id);
-  if (!mainContract) {
-    throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
-
-  const data = mainContract.toJSON();
-  data.has_files = await checkFileStatus(FILE_MODULE, id);
-  return data;
+  return buildMainContractDetail(id);
 }
 
 /**
  * 更新总包合同
  */
 async function updateMainContract(id, body, userId) {
+  const existing = await MainContract.findByPk(id);
+  if (!existing) {
+    throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+
   const updates = { updated_by: userId };
   for (const key of MAIN_CONTRACT_WRITABLE_FIELDS) {
     if (body[key] !== undefined) {
@@ -157,13 +176,17 @@ async function updateMainContract(id, body, userId) {
     }
   }
 
+  const merged = { ...existing.toJSON(), ...updates };
+  const totals = await getMainContractTotals(id);
+  updates.contract_status = resolveMainContractStatus(merged, totals);
+
   const [num] = await MainContract.update(updates, { where: { id } });
 
   if (num !== 1) {
     throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
   }
 
-  return findMainContractWithRelations(id);
+  return buildMainContractDetail(id);
 }
 
 async function getMainContractRelatedCounts(id) {

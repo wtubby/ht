@@ -5,6 +5,7 @@ const ERROR_CODES = require('../utils/errorCodes');
 const { attachFileStatus, checkFileStatus } = require('../utils/fileStatusHelper');
 const { removeRecordWithFiles } = require('../utils/recordRemoval');
 const { resolveListPagination } = require('../utils/listPagination');
+const { syncMainContractStatus } = require('../utils/mainContractStatus');
 const { findMainContractsForSelect } = require('./contractSelect.service');
 
 const { Receive, MainContract, Company } = db;
@@ -107,6 +108,8 @@ async function createReceive(body, userId) {
 
   const receive = await Receive.create(data);
 
+  await syncMainContractStatus(receive.main_contract_id);
+
   return buildReceiveDetail(receive.id);
 }
 
@@ -147,6 +150,11 @@ async function findOneReceive(id) {
  * 更新收款
  */
 async function updateReceive(id, body, userId) {
+  const existing = await Receive.findByPk(id, { attributes: ['main_contract_id'] });
+  if (!existing) {
+    throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+  }
+
   const updates = { updated_by: userId };
   for (const key of RECEIVE_WRITABLE_FIELDS) {
     if (body[key] !== undefined) {
@@ -160,6 +168,12 @@ async function updateReceive(id, body, userId) {
     throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
   }
 
+  const nextMainContractId = body.main_contract_id ?? existing.main_contract_id;
+  await syncMainContractStatus(nextMainContractId);
+  if (existing.main_contract_id && existing.main_contract_id !== nextMainContractId) {
+    await syncMainContractStatus(existing.main_contract_id);
+  }
+
   return buildReceiveDetail(id);
 }
 
@@ -167,12 +181,21 @@ async function updateReceive(id, body, userId) {
  * 删除收款（含关联文件清理）
  */
 async function removeReceive(id) {
-  return removeRecordWithFiles({
+  const existing = await Receive.findByPk(id, { attributes: ['main_contract_id'] });
+  const mainContractId = existing?.main_contract_id;
+
+  const result = await removeRecordWithFiles({
     model: Receive,
     id,
     fileModule: FILE_MODULE,
     notFoundMessage: '收款记录不存在',
   });
+
+  if (mainContractId) {
+    await syncMainContractStatus(mainContractId);
+  }
+
+  return result;
 }
 
 /**

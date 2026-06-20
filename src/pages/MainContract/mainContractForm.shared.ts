@@ -13,13 +13,16 @@ export const mainContractFieldRules = {
   amount_contract: [{ required: true, message: '合同金额为必填项' }],
 };
 
-export const normalizeMainContractValues = (values: API.MainContract): API.MainContract => ({
-  ...values,
-  amount_settlement:
-    values.amount_settlement === undefined || values.amount_settlement === null
-      ? undefined
-      : values.amount_settlement,
-});
+export const normalizeMainContractValues = (values: API.MainContract): API.MainContract => {
+  const { contract_status: _status, ...rest } = values;
+  return {
+    ...rest,
+    amount_settlement:
+      values.amount_settlement === undefined || values.amount_settlement === null
+        ? undefined
+        : values.amount_settlement,
+  };
+};
 
 export const isMainContractRequiredFilled = (
   values: Partial<Record<(typeof MAIN_CONTRACT_REQUIRED_FIELDS)[number], unknown>>,

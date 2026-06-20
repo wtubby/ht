@@ -25,7 +25,7 @@ const mainContractCreateOrUpdateBody = Joi.object().keys({
     'string.empty': '合同名称不能为空',
   }),
   contract_no: mainContractBody.contract_no,
-  contract_status: mainContractBody.contract_status,
+  contract_status: mainContractBody.contract_status.strip(),
   party_a_id: mainContractBody.party_a_id.required(),
   party_b_id: mainContractBody.party_b_id.required(),
   amount_contract: mainContractBody.amount_contract.required(),

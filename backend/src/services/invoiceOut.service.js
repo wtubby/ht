@@ -1,6 +1,7 @@
 const db = require('../models');
 const { createInvoiceService } = require('./invoiceCommon.service');
 const { findMainContractsForSelect } = require('./contractSelect.service');
+const { syncMainContractStatus } = require('../utils/mainContractStatus');
 
 const { InvoiceOut, MainContract, User } = db;
 
@@ -29,7 +30,7 @@ const INVOICE_OUT_WRITABLE_FIELDS = [
   'remarks',
 ];
 
-const service = createInvoiceService({
+const baseService = createInvoiceService({
   model: InvoiceOut,
   contractModel: MainContract,
   contractField: 'main_contract_id',
@@ -57,11 +58,45 @@ const service = createInvoiceService({
   },
 });
 
+async function syncMainContractStatusForInvoice(record, previousMainContractId) {
+  const nextMainContractId = record.main_contract_id;
+  await syncMainContractStatus(nextMainContractId);
+  if (previousMainContractId && previousMainContractId !== nextMainContractId) {
+    await syncMainContractStatus(previousMainContractId);
+  }
+}
+
+async function createInvoiceOut(body, userId) {
+  const invoiceOut = await baseService.create(body, userId);
+  await syncMainContractStatus(invoiceOut.main_contract_id);
+  return invoiceOut;
+}
+
+async function updateInvoiceOut(id, body, userId) {
+  const existing = await InvoiceOut.findByPk(id, { attributes: ['main_contract_id'] });
+  const invoiceOut = await baseService.update(id, body, userId);
+  await syncMainContractStatusForInvoice(invoiceOut, existing?.main_contract_id);
+  return invoiceOut;
+}
+
+async function removeInvoiceOut(id) {
+  const existing = await InvoiceOut.findByPk(id, { attributes: ['main_contract_id'] });
+  const mainContractId = existing?.main_contract_id;
+
+  const result = await baseService.remove(id);
+
+  if (mainContractId) {
+    await syncMainContractStatus(mainContractId);
+  }
+
+  return result;
+}
+
 module.exports = {
-  findAllInvoiceOut: service.findAll,
-  findOneInvoiceOut: service.findOne,
-  createInvoiceOut: service.create,
-  updateInvoiceOut: service.update,
-  removeInvoiceOut: service.remove,
-  getInvoiceOutSelectOptions: service.getSelectOptions,
+  findAllInvoiceOut: baseService.findAll,
+  findOneInvoiceOut: baseService.findOne,
+  createInvoiceOut,
+  updateInvoiceOut,
+  removeInvoiceOut,
+  getInvoiceOutSelectOptions: baseService.getSelectOptions,
 };

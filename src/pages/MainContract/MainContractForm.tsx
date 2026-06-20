@@ -1,5 +1,6 @@
 ﻿import BusinessFileUploader from '@/components/BusinessFileUploader';
 import { COLORS } from '@/constants/colors';
+import { getContractStatusColor } from '@/constants/statusColors';
 import {
   fetchMainContractQuery,
   useAddMainContract,
@@ -10,6 +11,10 @@ import {
   useUpdateMainContract,
 } from '@/hooks';
 import { getApiEntity, getSavedEntityId } from '@/utils/apiResponse';
+import {
+  formatMainContractDateValue,
+  resolveMainContractStatus,
+} from '@/utils/mainContractStatus';
 import { amountFormatter, parseAmount, parseOptionalAmount } from '@/utils/format';
 import { appendInactiveCompanyOption } from '@/utils/selectOptions';
 import {
@@ -21,7 +26,7 @@ import {
   ProFormTextArea,
 } from '@ant-design/pro-components';
 import type { FormInstance } from 'antd';
-import { App, Button, Col, Row, Spin, Tooltip, Typography } from 'antd';
+import { App, Button, Col, Form, Row, Spin, Tag, Tooltip, Typography } from 'antd';
 import type { DefaultOptionType } from 'antd/es/select';
 import dayjs from 'dayjs';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -32,7 +37,7 @@ import {
   normalizeMainContractValues,
 } from './mainContractForm.shared';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 // 合同金额（必填）
 const contractAmountFieldProps = {
@@ -217,7 +222,7 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
           attemptClose();
         }
       }}
-      initialValues={{ contract_status: '执行中' }}
+      initialValues={{}}
       onValuesChange={handleValuesChange}
       submitter={{
         render: () => [
@@ -260,19 +265,40 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
                   />
                 </Col>
                 <Col span={8}>
-                  <ProFormSelect
-                    name="contract_status"
+                  <Form.Item
                     label="状态"
-                    options={[
-                      { label: '未签约', value: '未签约' },
-                      { label: '执行中', value: '执行中' },
-                      { label: '已完工', value: '已完工' },
-                      { label: '已完结', value: '已完结' },
-                    ]}
-                    placeholder="请选择状态"
                     labelCol={{ span: 8 }}
                     wrapperCol={{ span: 16 }}
-                  />
+                    shouldUpdate={(prev, cur) =>
+                      prev.date_signed !== cur.date_signed ||
+                      prev.date_end !== cur.date_end ||
+                      prev.amount_settlement !== cur.amount_settlement
+                    }
+                  >
+                    {({ getFieldValue }) => {
+                      const status = resolveMainContractStatus(
+                        {
+                          date_signed: formatMainContractDateValue(getFieldValue('date_signed')),
+                          date_end: formatMainContractDateValue(getFieldValue('date_end')),
+                          amount_settlement: getFieldValue('amount_settlement'),
+                        },
+                        {
+                          total_received: detailRecord?.total_received ?? 0,
+                          total_invoiced: detailRecord?.total_invoiced ?? 0,
+                        },
+                      );
+                      return (
+                        <div>
+                          <Tag color={getContractStatusColor(status)}>{status}</Tag>
+                          <div>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              根据签约/竣工日期及收开票金额自动计算
+                            </Text>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  </Form.Item>
                 </Col>
               </Row>
 
