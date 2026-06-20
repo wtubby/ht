@@ -2,6 +2,14 @@ import './ensureCacheRegistrations';
 
 export { useBondAmountRatio } from './useBondAmountRatio';
 export {
+  dashboardKeys,
+  useDashboardCharts,
+  useDashboardKpi,
+  useDashboardTrend,
+  useInvalidateDashboard,
+} from './useDashboard';
+export type { DashboardTimeRange, DashboardTrendTimeRange } from './useDashboard';
+export {
   getEmptyPartyBankAccountFieldValues,
   PARTY_BANK_ACCOUNT_FIELDS,
   usePartyBankAccountAutoFill,

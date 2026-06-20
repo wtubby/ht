@@ -1,11 +1,12 @@
 import { CHART_COLORS, COLORS, hexToRgba, MODULE_COLORS, UI_COLORS } from '@/constants/colors';
 import { FILE_MODULE_CONFIGS } from '@/constants/fileModuleConfig';
 import {
-  getDashboardStatistics,
-  getDashboardTrend,
-  getProjectReceiveProgress,
-} from '@/services/wtu/dashboard.api';
-import { getErrorMessage } from '@/utils/apiError';
+  useDashboardCharts,
+  useDashboardKpi,
+  useDashboardTrend,
+  useInvalidateDashboard,
+} from '@/hooks';
+import type { DashboardTimeRange, DashboardTrendTimeRange } from '@/hooks';
 import { getProgressBarWidthPct, isProgressOver, OVER_PROGRESS_COLOR } from '@/utils/format';
 import {
   AuditOutlined,
@@ -25,7 +26,6 @@ import {
   Checkbox,
   Col,
   DatePicker,
-  message,
   Progress,
   Radio,
   Row,
@@ -34,13 +34,13 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
 
-type TimeRange = 'all' | 'today' | 'month' | 'year' | 'custom';
-type TrendTimeRange = 'month' | 'year' | 'all' | 'custom';
+type TimeRange = DashboardTimeRange;
+type TrendTimeRange = DashboardTrendTimeRange;
 type TrendMetric = 'amount' | 'count';
 
 const TREND_TYPE_LABEL: Record<string, string> = {
@@ -347,37 +347,27 @@ const ChartEmpty: React.FC<{ height?: number }> = ({ height = 220 }) => (
 );
 
 // ─── 主组件 ───────────────────────────────────────────────
-const CHART_PARAMS = { timeRange: 'all' as const };
-
 const Analysis: React.FC = () => {
-  const [kpiLoading, setKpiLoading] = useState(false);
-  const [chartLoading, setChartLoading] = useState(false);
-  const [trendLoading, setTrendLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [customRange, setCustomRange] = useState<[string, string] | null>(null);
   const [trendTimeRange, setTrendTimeRange] = useState<TrendTimeRange>('year');
   const [trendCustomRange, setTrendCustomRange] = useState<[string, string] | null>(null);
-  const [overview, setOverview] = useState<API.DashboardStatistics['overview'] | null>(null);
-  const [distribution, setDistribution] = useState<API.DashboardStatistics['distribution'] | null>(
-    null,
-  );
-  const [trendData, setTrendData] = useState<API.DashboardTrend | null>(null);
-  const [progress, setProgress] = useState<API.ProjectReceiveProgress[]>([]);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('amount');
   const [trendSeries, setTrendSeries] = useState<string[]>(DEFAULT_TREND_SERIES);
 
-  const buildKpiParams = () => {
+  const invalidateDashboard = useInvalidateDashboard();
+
+  const kpiParams = useMemo(() => {
     const p: { timeRange: TimeRange; startDate?: string; endDate?: string } = { timeRange };
     if (timeRange === 'custom' && customRange) {
       p.startDate = customRange[0];
       p.endDate = customRange[1];
     }
     return p;
-  };
-
+  }, [timeRange, customRange]);
   const canLoadKpi = timeRange !== 'custom' || customRange !== null;
 
-  const buildTrendParams = () => {
+  const trendParams = useMemo(() => {
     const p: { timeRange: TrendTimeRange; startDate?: string; endDate?: string } = {
       timeRange: trendTimeRange,
     };
@@ -386,112 +376,67 @@ const Analysis: React.FC = () => {
       p.endDate = trendCustomRange[1];
     }
     return p;
-  };
-
+  }, [trendTimeRange, trendCustomRange]);
   const canLoadTrend = trendTimeRange !== 'custom' || trendCustomRange !== null;
 
-  const loadKpi = async () => {
-    if (!canLoadKpi) return;
-    try {
-      setKpiLoading(true);
-      const res = await getDashboardStatistics(buildKpiParams());
-      if (res.success) setOverview(res.data.overview);
-    } catch (error) {
-      message.error(getErrorMessage(error, '加载 KPI 数据失败'));
-    } finally {
-      setKpiLoading(false);
-    }
-  };
+  const kpiQuery = useDashboardKpi(kpiParams, canLoadKpi);
+  const chartsQuery = useDashboardCharts();
+  const trendQuery = useDashboardTrend(trendParams, canLoadTrend);
 
-  const loadTrend = async () => {
-    if (!canLoadTrend) return;
-    try {
-      setTrendLoading(true);
-      const res = await getDashboardTrend(buildTrendParams());
-      if (res.success) setTrendData(res.data);
-    } catch (error) {
-      message.error(getErrorMessage(error, '加载趋势数据失败'));
-    } finally {
-      setTrendLoading(false);
-    }
-  };
+  const overview = kpiQuery.data ?? null;
+  const distribution = chartsQuery.data?.distribution ?? null;
+  const progress = chartsQuery.data?.progress ?? [];
+  const trendData = trendQuery.data ?? null;
 
-  const loadCharts = async () => {
-    try {
-      setChartLoading(true);
-      const [statsRes, progressRes] = await Promise.all([
-        getDashboardStatistics(CHART_PARAMS),
-        getProjectReceiveProgress(CHART_PARAMS),
-      ]);
-      if (statsRes.success) setDistribution(statsRes.data.distribution);
-      if (progressRes.success) setProgress(progressRes.data);
-    } catch (error) {
-      message.error(getErrorMessage(error, '加载图表数据失败'));
-    } finally {
-      setChartLoading(false);
-    }
-  };
+  const kpiLoading = kpiQuery.isLoading;
+  const chartsLoading = chartsQuery.isLoading;
+  const trendLoading = trendQuery.isLoading;
+  const refreshing = kpiQuery.isFetching || chartsQuery.isFetching || trendQuery.isFetching;
 
-  const loadAll = () => Promise.all([loadKpi(), loadCharts(), loadTrend()]);
+  const bondStatusPie = useMemo(
+    () =>
+      toPieData(distribution?.bondStatus, 'bond_status', undefined, 'total_amount')
+        .sort((a, b) => {
+          const ai = BOND_STATUS_ORDER.indexOf(a.name);
+          const bi = BOND_STATUS_ORDER.indexOf(b.name);
+          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        })
+        .map((item) => ({
+          ...item,
+          tooltip_value: `¥${formatMoney(item.total_amount)}（${item.count}笔）`,
+        })),
+    [distribution?.bondStatus],
+  );
+  const mainContractStatusPie = useMemo(
+    () => toPieData(distribution?.mainContractStatus, 'contract_status'),
+    [distribution?.mainContractStatus],
+  );
+  const subContractTypePie = useMemo(
+    () => toPieData(distribution?.subContractType, 'contract_type'),
+    [distribution?.subContractType],
+  );
+  const fileModulePie = useMemo(
+    () => toPieData(distribution?.fileModule, 'file_module', fileModuleLabel),
+    [distribution?.fileModule],
+  );
 
-  useEffect(() => {
-    loadCharts();
-    loadTrend();
-  }, []);
-  useEffect(() => {
-    loadKpi();
-  }, [timeRange, customRange]);
-  useEffect(() => {
-    if (!canLoadTrend) {
-      if (trendTimeRange === 'custom') setTrendData(null);
-      return;
-    }
-    loadTrend();
-  }, [trendTimeRange, trendCustomRange]);
-
-  const loading = kpiLoading || chartLoading || trendLoading;
-
-  const bondStatusPie = toPieData(
-    distribution?.bondStatus,
-    'bond_status',
-    undefined,
-    'total_amount',
-  )
-    .sort((a, b) => {
-      const ai = BOND_STATUS_ORDER.indexOf(a.name);
-      const bi = BOND_STATUS_ORDER.indexOf(b.name);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    })
-    .map((item) => ({
-      ...item,
-      tooltip_value: `¥${formatMoney(item.total_amount)}（${item.count}笔）`,
-    }));
-  const mainContractStatusPie = toPieData(distribution?.mainContractStatus, 'contract_status');
-  const subContractTypePie = toPieData(distribution?.subContractType, 'contract_type');
-  const fileModulePie = toPieData(distribution?.fileModule, 'file_module', fileModuleLabel);
-
-  const mapTrend = (rows: any[] | undefined, type: string) =>
-    (rows ?? [])
-      .filter((d) => d.date != null && d.date !== '')
-      .map((d) => ({
-        date: String(d.date),
-        type,
-        amount: d.amount ? Math.round(Number(d.amount) / 10000) : 0,
-        count: Number(d.count) || 0,
-      }));
-
-  // 趋势图数据
-  const rawTrendChartData: TrendPoint[] = trendData
-    ? [
-        ...mapTrend(trendData.contractTrend, '总包合同'),
-        ...mapTrend(trendData.receiveTrend, '收款'),
-        ...mapTrend(trendData.invoiceOutTrend, '销项发票'),
-        ...mapTrend(trendData.invoiceInTrend, '进项发票'),
-      ]
-    : [];
-
-  const trendChartData = (() => {
+  const trendChartData = useMemo(() => {
     if (!trendData) return [];
+    const mapTrend = (rows: API.DashboardTrend['contractTrend'], type: string) =>
+      (rows ?? [])
+        .filter((d) => d.date != null && d.date !== '')
+        .map((d) => ({
+          date: String(d.date),
+          type,
+          amount: d.amount ? Math.round(Number(d.amount) / 10000) : 0,
+          count: Number(d.count) || 0,
+        }));
+    const rawTrendChartData: TrendPoint[] = [
+      ...mapTrend(trendData.contractTrend, '总包合同'),
+      ...mapTrend(trendData.receiveTrend, '收款'),
+      ...mapTrend(trendData.invoiceOutTrend, '销项发票'),
+      ...mapTrend(trendData.invoiceInTrend, '进项发票'),
+    ];
     if (trendData.type === 'month') {
       return fillMonthlyTrendGaps(
         rawTrendChartData,
@@ -505,9 +450,12 @@ const Analysis: React.FC = () => {
       );
     }
     return rawTrendChartData;
-  })();
+  }, [trendData, trendTimeRange, trendCustomRange]);
 
-  const filteredTrendChartData = trendChartData.filter((d) => trendSeries.includes(d.type));
+  const filteredTrendChartData = useMemo(
+    () => trendChartData.filter((d) => trendSeries.includes(d.type)),
+    [trendChartData, trendSeries],
+  );
   const trendTypeHint = trendData?.type ?? resolveTrendTypeHint(trendTimeRange, trendCustomRange);
 
   return (
@@ -560,7 +508,7 @@ const Analysis: React.FC = () => {
               />
             )}
             <Tooltip title="刷新数据">
-              <Button icon={<ReloadOutlined />} onClick={loadAll} loading={loading} />
+              <Button icon={<ReloadOutlined />} onClick={invalidateDashboard} loading={refreshing} />
             </Tooltip>
           </div>
         ),
@@ -1054,7 +1002,7 @@ const Analysis: React.FC = () => {
         title={<span style={{ fontWeight: 600, fontSize: 14 }}>项目收款进度</span>}
         extra={<Badge count={progress.length} showZero color={COLORS.primary} />}
       >
-        {loading && progress.length === 0 ? (
+        {chartsLoading && progress.length === 0 ? (
           <Skeleton active paragraph={{ rows: 4 }} title={false} />
         ) : progress.length === 0 ? (
           <ChartEmpty height={80} />
