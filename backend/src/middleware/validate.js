@@ -24,7 +24,7 @@ const validate = (schema) => (req, res, next) => {
     return next(new ApiError(400, errorMessage, ERROR_CODES.VALIDATION_ERROR));
   }
 
-  // Express 5 中 req.query 为只读 getter，需 defineProperty 覆盖；params/body 可原地合并
+  // Express 5 中 req.query 为只读 getter，需 defineProperty 覆盖；body 整包替换以免残留未校验字段
   if (value.params) {
     Object.assign(req.params, value.params);
   }
@@ -37,7 +37,7 @@ const validate = (schema) => (req, res, next) => {
     });
   }
   if (value.body) {
-    Object.assign(req.body, value.body);
+    req.body = value.body;
   }
   return next();
 };

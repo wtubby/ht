@@ -13,17 +13,35 @@ const companyInclude = {
 
 const BANK_ACCOUNT_DUPLICATE_MESSAGE = '该银行账号已存在';
 
-function pickBankAccountFields(account, { includeDefault = false } = {}) {
-  const fields = {
-    account_name: account.account_name,
-    account_number: account.account_number,
-    bank_name: account.bank_name,
-    account_status: account.account_status || '正常',
-    remarks: account.remarks ?? null,
-  };
+const BANK_ACCOUNT_WRITABLE_FIELDS = [
+  'account_name',
+  'account_number',
+  'bank_name',
+  'is_default',
+  'account_status',
+  'remarks',
+];
 
-  if (includeDefault) {
-    fields.is_default = account.is_default ?? false;
+function pickBankAccountFields(account, { includeDefault = false, forUpdate = false } = {}) {
+  const keys = includeDefault
+    ? BANK_ACCOUNT_WRITABLE_FIELDS
+    : BANK_ACCOUNT_WRITABLE_FIELDS.filter((key) => key !== 'is_default');
+  const fields = {};
+
+  for (const key of keys) {
+    if (forUpdate && account[key] === undefined) {
+      continue;
+    }
+
+    if (key === 'account_status') {
+      fields.account_status = account.account_status || '正常';
+    } else if (key === 'remarks') {
+      fields.remarks = account.remarks ?? null;
+    } else if (key === 'is_default') {
+      fields.is_default = account.is_default ?? false;
+    } else {
+      fields[key] = account[key];
+    }
   }
 
   return fields;
@@ -65,7 +83,7 @@ async function createBankAccount(body, userId, companyIdFromRoute, options = {})
   try {
     account = await CompanyBankAccount.create(
       {
-        ...body,
+        ...pickBankAccountFields(body, { includeDefault: true }),
         company_id: companyId,
         created_by: userId,
       },
@@ -90,10 +108,11 @@ async function updateBankAccount(id, body, userId, options = {}) {
   }
 
   try {
-    const [num] = await CompanyBankAccount.update(
-      { ...body, updated_by: userId },
-      { where, transaction },
-    );
+    const updates = {
+      ...pickBankAccountFields(body, { includeDefault: true, forUpdate: true }),
+      updated_by: userId,
+    };
+    const [num] = await CompanyBankAccount.update(updates, { where, transaction });
 
     if (num !== 1) {
       throw new ApiError(404, '银行账户不存在', ERROR_CODES.RESOURCE_NOT_FOUND);

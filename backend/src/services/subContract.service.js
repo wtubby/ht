@@ -89,14 +89,35 @@ async function findSubContractWithRelations(id) {
   return SubContract.findByPk(id, { include: detailIncludes });
 }
 
+const SUB_CONTRACT_WRITABLE_FIELDS = [
+  'contract_name',
+  'main_contract_id',
+  'contract_type',
+  'contract_status',
+  'party_b_id',
+  'party_c_id',
+  'amount_contract',
+  'amount_settlement',
+  'date_signed',
+  'remarks',
+  'bond_perf_req',
+  'bond_labor_req',
+  'bond_perf_amt',
+  'bond_labor_amt',
+  'bond_perf_form',
+  'bond_labor_form',
+];
+
 /**
  * 创建分包合同
  */
 async function createSubContract(body, userId) {
-  const subContract = await SubContract.create({
-    ...body,
-    created_by: userId,
-  });
+  const data = { created_by: userId };
+  for (const key of SUB_CONTRACT_WRITABLE_FIELDS) {
+    data[key] = body[key];
+  }
+
+  const subContract = await SubContract.create(data);
 
   return findSubContractWithRelations(subContract.id);
 }
@@ -183,10 +204,14 @@ async function findOneSubContract(id) {
  * 更新分包合同
  */
 async function updateSubContract(id, body, userId) {
-  const [num] = await SubContract.update(
-    { ...body, updated_by: userId },
-    { where: { id } },
-  );
+  const updates = { updated_by: userId };
+  for (const key of SUB_CONTRACT_WRITABLE_FIELDS) {
+    if (body[key] !== undefined) {
+      updates[key] = body[key];
+    }
+  }
+
+  const [num] = await SubContract.update(updates, { where: { id } });
 
   if (num !== 1) {
     throw new ApiError(404, '分包合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);

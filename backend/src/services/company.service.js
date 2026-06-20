@@ -31,18 +31,32 @@ async function findCompanyWithRelations(id) {
   return Company.findByPk(id, { include: [creatorInclude] });
 }
 
+const COMPANY_WRITABLE_FIELDS = [
+  'company_name',
+  'company_type',
+  'company_status',
+  'credit_code',
+  'legal_person',
+  'reg_capital',
+  'establish_date',
+  'address',
+  'remarks',
+];
+
 /**
  * 创建单位（可选同步银行账户，同一事务提交）
  */
 async function createCompany(body, userId) {
-  const { bankAccounts, ...companyFields } = body;
+  const { bankAccounts } = body;
+  const data = { created_by: userId };
+  for (const key of COMPANY_WRITABLE_FIELDS) {
+    data[key] = body[key];
+  }
+
   const t = await db.sequelize.transaction();
 
   try {
-    const company = await Company.create(
-      { ...companyFields, created_by: userId },
-      { transaction: t },
-    );
+    const company = await Company.create(data, { transaction: t });
 
     if (bankAccounts !== undefined && bankAccounts.length > 0) {
       await bankAccountService.syncBankAccountsForCompany(company.id, bankAccounts, userId, t);
@@ -158,14 +172,18 @@ async function findOneCompany(id) {
  * 更新单位（可选同步银行账户，同一事务提交）
  */
 async function updateCompany(id, body, userId) {
-  const { bankAccounts, ...companyFields } = body;
+  const { bankAccounts } = body;
+  const updates = { updated_by: userId };
+  for (const key of COMPANY_WRITABLE_FIELDS) {
+    if (body[key] !== undefined) {
+      updates[key] = body[key];
+    }
+  }
+
   const t = await db.sequelize.transaction();
 
   try {
-    const [num] = await Company.update(
-      { ...companyFields, updated_by: userId },
-      { where: { id }, transaction: t },
-    );
+    const [num] = await Company.update(updates, { where: { id }, transaction: t });
 
     if (num !== 1) {
       throw new ApiError(404, '单位不存在', ERROR_CODES.RESOURCE_NOT_FOUND);

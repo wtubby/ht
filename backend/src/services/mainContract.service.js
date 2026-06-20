@@ -44,14 +44,31 @@ async function findMainContractWithRelations(id) {
   return MainContract.findByPk(id, { include: contractIncludes });
 }
 
+const MAIN_CONTRACT_WRITABLE_FIELDS = [
+  'contract_name',
+  'contract_no',
+  'contract_status',
+  'party_a_id',
+  'party_b_id',
+  'amount_contract',
+  'amount_settlement',
+  'date_signed',
+  'date_warranty',
+  'date_start',
+  'date_end',
+  'remarks',
+];
+
 /**
  * 创建总包合同
  */
 async function createMainContract(body, userId) {
-  const mainContract = await MainContract.create({
-    ...body,
-    created_by: userId,
-  });
+  const data = { created_by: userId };
+  for (const key of MAIN_CONTRACT_WRITABLE_FIELDS) {
+    data[key] = body[key];
+  }
+
+  const mainContract = await MainContract.create(data);
 
   return findMainContractWithRelations(mainContract.id);
 }
@@ -133,10 +150,14 @@ async function findOneMainContract(id) {
  * 更新总包合同
  */
 async function updateMainContract(id, body, userId) {
-  const [num] = await MainContract.update(
-    { ...body, updated_by: userId },
-    { where: { id } },
-  );
+  const updates = { updated_by: userId };
+  for (const key of MAIN_CONTRACT_WRITABLE_FIELDS) {
+    if (body[key] !== undefined) {
+      updates[key] = body[key];
+    }
+  }
+
+  const [num] = await MainContract.update(updates, { where: { id } });
 
   if (num !== 1) {
     throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
