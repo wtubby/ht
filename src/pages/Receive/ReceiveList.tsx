@@ -94,7 +94,8 @@ const ReceiveList: React.FC<ReceiveListProps> = ({ actionRef, onViewDetail, onEd
         width: 300,
         ellipsis: true,
         render: (_, record: ReceiveWithFiles) => {
-          const partyAName = record.mainContract?.partyA?.company_name;
+          const partyAName =
+            record.payer_name || record.mainContract?.partyA?.company_name;
 
           return (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>

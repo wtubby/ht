@@ -107,6 +107,14 @@ const ReceiveDetail: React.FC<ReceiveDetailProps> = ({ visible, currentRecord, o
 
   const currentPartyAName = displayData?.mainContract?.partyA?.company_name?.trim() ?? '';
 
+  const payeeOutdated = useMemo(() => {
+    const payeeName = displayData?.payee_name?.trim() ?? '';
+    const currentPartyB = displayData?.mainContract?.partyB?.company_name?.trim() ?? '';
+    return !!currentPartyB && !!payeeName && payeeName !== currentPartyB;
+  }, [displayData?.payee_name, displayData?.mainContract?.partyB?.company_name]);
+
+  const currentPartyBName = displayData?.mainContract?.partyB?.company_name?.trim() ?? '';
+
   return (
     <Drawer
       title={receiveTitle}
@@ -259,7 +267,20 @@ const ReceiveDetail: React.FC<ReceiveDetailProps> = ({ visible, currentRecord, o
                   />
                   <DetailItem
                     label="承包单位"
-                    value={displayData.mainContract?.partyB?.company_name || '-'}
+                    value={
+                      <>
+                        <div>
+                          {displayData.payee_name ||
+                            displayData.mainContract?.partyB?.company_name ||
+                            '-'}
+                        </div>
+                        {payeeOutdated ? (
+                          <Text type="warning" style={{ fontSize: 12 }}>
+                            当前合同承包单位为「{currentPartyBName}」
+                          </Text>
+                        ) : null}
+                      </>
+                    }
                     span={12}
                   />
                 </Row>
