@@ -15,3 +15,8 @@ exports.getTrendData = catchAsync(async (req, res) => {
   const data = await dashboardService.getTrendData(req.query);
   res.json({ success: true, data });
 });
+
+exports.getUpcomingExpirations = catchAsync(async (req, res) => {
+  const data = await dashboardService.getUpcomingExpirations(req.query);
+  res.json({ success: true, data });
+});

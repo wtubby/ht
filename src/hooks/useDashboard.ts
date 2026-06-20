@@ -2,6 +2,7 @@ import {
   getDashboardStatistics,
   getDashboardTrend,
   getProjectReceiveProgress,
+  getUpcomingExpirations,
 } from '@/services/wtu/dashboard.api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -21,6 +22,7 @@ export const dashboardKeys = {
   kpi: (params: DashboardDateParams) => ['dashboard', 'kpi', params] as const,
   charts: ['dashboard', 'charts'] as const,
   trend: (params: DashboardDateParams) => ['dashboard', 'trend', params] as const,
+  expirations: (days: number) => ['dashboard', 'expirations', days] as const,
 };
 
 async function fetchDashboardKpi(params: DashboardDateParams) {
@@ -68,6 +70,18 @@ export function useDashboardTrend(params: DashboardDateParams, enabled = true) {
     queryKey: dashboardKeys.trend(params),
     queryFn: () => fetchDashboardTrend(params),
     enabled,
+  });
+}
+
+/** 到期预警（保函 / 保修截止） */
+export function useDashboardExpirations(days = 30) {
+  return useQuery({
+    queryKey: dashboardKeys.expirations(days),
+    queryFn: async () => {
+      const res = await getUpcomingExpirations({ days });
+      return res.data;
+    },
+    retry: false,
   });
 }
 

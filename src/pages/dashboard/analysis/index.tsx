@@ -2,12 +2,14 @@ import { CHART_COLORS, COLORS, hexToRgba, MODULE_COLORS, UI_COLORS } from '@/con
 import { FILE_MODULE_CONFIGS } from '@/constants/fileModuleConfig';
 import {
   useDashboardCharts,
+  useDashboardExpirations,
   useDashboardKpi,
   useDashboardTrend,
   useInvalidateDashboard,
 } from '@/hooks';
 import type { DashboardTimeRange, DashboardTrendTimeRange } from '@/hooks';
 import { getProgressBarWidthPct, isProgressOver, OVER_PROGRESS_COLOR } from '@/utils/format';
+import { history } from '@umijs/max';
 import {
   AuditOutlined,
   FileTextOutlined,
@@ -16,16 +18,19 @@ import {
   PayCircleOutlined,
   ReloadOutlined,
   TeamOutlined,
+  WarningOutlined,
 } from '@ant-design/icons';
 import { Line, Pie } from '@ant-design/plots';
 import { PageContainer } from '@ant-design/pro-components';
 import {
+  Alert,
   Badge,
   Button,
   Card,
   Checkbox,
   Col,
   DatePicker,
+  List,
   Progress,
   Radio,
   Row,
@@ -346,6 +351,123 @@ const ChartEmpty: React.FC<{ height?: number }> = ({ height = 220 }) => (
   </div>
 );
 
+const EXPIRATION_DAY_OPTIONS = [
+  { label: '7天', value: 7 },
+  { label: '30天', value: 30 },
+  { label: '90天', value: 90 },
+] as const;
+
+const expirationDaysLeftColor = (daysLeft: number): string => {
+  if (daysLeft <= 7) return COLORS.danger;
+  if (daysLeft <= 15) return COLORS.warning;
+  return COLORS.textSecondary;
+};
+
+const ExpirationAlert: React.FC<{
+  days: number;
+  onDaysChange: (days: number) => void;
+  data?: API.DashboardUpcomingExpirations;
+  loading?: boolean;
+}> = ({ days, onDaysChange, data, loading }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  if (loading && !data) {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <Skeleton.Input active block style={{ height: 40 }} />
+      </div>
+    );
+  }
+
+  const items = data?.items ?? [];
+  const overdueCount = data?.overdueCount ?? 0;
+  if (items.length === 0 && overdueCount === 0) return null;
+
+  const bondCount = items.filter((item) => item.type === 'bond').length;
+  const warrantyCount = items.filter((item) => item.type === 'warranty').length;
+  const parts: string[] = [];
+  if (bondCount > 0) parts.push(`保函 ${bondCount} 项`);
+  if (warrantyCount > 0) parts.push(`保修 ${warrantyCount} 项`);
+
+  const handleItemClick = (item: API.DashboardExpirationItem) => {
+    if (item.type === 'bond') {
+      history.push(`/bonds?bond_id=${item.id}`);
+      return;
+    }
+    history.push('/main-contracts');
+  };
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <Alert
+        type={overdueCount > 0 ? 'error' : 'warning'}
+        showIcon
+        icon={<WarningOutlined />}
+        message={
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <span>
+              {items.length > 0
+                ? `未来 ${days} 天内有 ${items.length} 项即将到期（${parts.join('、')}）`
+                : '暂无即将到期项'}
+            </span>
+            {overdueCount > 0 && (
+              <Badge count={`${overdueCount} 项已逾期`} style={{ backgroundColor: COLORS.danger }} />
+            )}
+          </div>
+        }
+        action={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Segmented
+              size="small"
+              options={EXPIRATION_DAY_OPTIONS.map((opt) => ({ label: opt.label, value: opt.value }))}
+              value={days}
+              onChange={(value) => onDaysChange(value as number)}
+            />
+            {items.length > 0 && (
+              <Button type="link" size="small" onClick={() => setExpanded((v) => !v)}>
+                {expanded ? '收起' : '展开'}
+              </Button>
+            )}
+          </div>
+        }
+      />
+      {expanded && items.length > 0 && (
+        <Card
+          size="small"
+          style={{ ...CARD_STYLE, marginTop: 8, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
+          styles={{ body: { padding: '4px 0' } }}
+        >
+          <List
+            size="small"
+            dataSource={items}
+            renderItem={(item) => (
+              <List.Item
+                style={{ padding: '8px 16px', cursor: 'pointer' }}
+                onClick={() => handleItemClick(item)}
+              >
+                <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 12 }}>
+                  <Text style={{ flex: 1 }} ellipsis>
+                    {item.title}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                    {item.type === 'bond' ? '保函' : '保修'}
+                  </Text>
+                  <Text style={{ fontSize: 12, flexShrink: 0, color: expirationDaysLeftColor(item.daysLeft) }}>
+                    {item.daysLeft === 0 ? '今日到期' : `剩余 ${item.daysLeft} 天`}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                    {item.dateEnd}
+                  </Text>
+                </div>
+              </List.Item>
+            )}
+          />
+        </Card>
+      )}
+    </div>
+  );
+};
+
 // ─── 主组件 ───────────────────────────────────────────────
 const Analysis: React.FC = () => {
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
@@ -354,6 +476,7 @@ const Analysis: React.FC = () => {
   const [trendCustomRange, setTrendCustomRange] = useState<[string, string] | null>(null);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>('amount');
   const [trendSeries, setTrendSeries] = useState<string[]>(DEFAULT_TREND_SERIES);
+  const [expirationDays, setExpirationDays] = useState(30);
 
   const invalidateDashboard = useInvalidateDashboard();
 
@@ -382,6 +505,7 @@ const Analysis: React.FC = () => {
   const kpiQuery = useDashboardKpi(kpiParams, canLoadKpi);
   const chartsQuery = useDashboardCharts();
   const trendQuery = useDashboardTrend(trendParams, canLoadTrend);
+  const expirationsQuery = useDashboardExpirations(expirationDays);
 
   const overview = kpiQuery.data ?? null;
   const distribution = chartsQuery.data?.distribution ?? null;
@@ -391,7 +515,11 @@ const Analysis: React.FC = () => {
   const kpiLoading = kpiQuery.isLoading;
   const chartsLoading = chartsQuery.isLoading;
   const trendLoading = trendQuery.isLoading;
-  const refreshing = kpiQuery.isFetching || chartsQuery.isFetching || trendQuery.isFetching;
+  const refreshing =
+    kpiQuery.isFetching ||
+    chartsQuery.isFetching ||
+    trendQuery.isFetching ||
+    expirationsQuery.isFetching;
 
   const bondStatusPie = useMemo(
     () =>
@@ -514,6 +642,13 @@ const Analysis: React.FC = () => {
         ),
       }}
     >
+      <ExpirationAlert
+        days={expirationDays}
+        onDaysChange={setExpirationDays}
+        data={expirationsQuery.data}
+        loading={expirationsQuery.isLoading}
+      />
+
       {/* ══ 第一行：6 个 KPI 卡片 ═══════════════════════════════ */}
       <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
         <Col xs={24} sm={12} md={8} xl={4}>

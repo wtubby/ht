@@ -15,4 +15,7 @@ router.get('/trend', dashboardController.getTrendData);
 // 获取项目收款进度
 router.get('/project-receive-progress', dashboardController.getProjectReceiveProgress);
 
+// 到期预警
+router.get('/upcoming-expirations', dashboardController.getUpcomingExpirations);
+
 module.exports = router;

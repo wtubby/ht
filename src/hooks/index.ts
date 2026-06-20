@@ -4,6 +4,7 @@ export { useBondAmountRatio } from './useBondAmountRatio';
 export {
   dashboardKeys,
   useDashboardCharts,
+  useDashboardExpirations,
   useDashboardKpi,
   useDashboardTrend,
   useInvalidateDashboard,

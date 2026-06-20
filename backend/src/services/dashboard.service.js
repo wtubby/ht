@@ -163,6 +163,38 @@ function mapDistributionItem(item, labelKey) {
 function filterValidTrendRows(rows) {
   return rows.filter((item) => item.date != null && item.date !== '');
 }
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function formatDateOnly(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function calcDaysLeft(dateEnd) {
+  const today = startOfToday();
+  const end = new Date(dateEnd);
+  end.setHours(0, 0, 0, 0);
+  return Math.round((end - today) / (24 * 60 * 60 * 1000));
+}
+
+function parseExpirationDays(rawDays) {
+  const parsed = parseInt(rawDays, 10);
+  if (!Number.isFinite(parsed)) return 30;
+  return Math.min(Math.max(parsed, 1), 365);
+}
 async function getStatistics(query) {
   const {
     timeRange = 'all',
@@ -445,8 +477,85 @@ async function getTrendData(query) {
   };
 }
 
+/**
+ * 到期预警：保函到期 + 保修截止（未来 N 天内）
+ */
+async function getUpcomingExpirations(query) {
+  const days = parseExpirationDays(query.days);
+  const today = startOfToday();
+  const todayStr = formatDateOnly(today);
+  const endStr = formatDateOnly(addDays(today, days));
+
+  const [bondRows, warrantyRows, overdueBondRows] = await Promise.all([
+    Bond.findAll({
+      attributes: ['id', 'bond_type', 'bond_form', 'status', 'date_end'],
+      where: {
+        bond_form: '保函',
+        status: { [Op.ne]: '已退还' },
+        date_end: { [Op.between]: [todayStr, endStr] },
+      },
+      include: [{
+        model: SubContract,
+        as: 'subContract',
+        attributes: ['contract_name'],
+      }],
+    }),
+    MainContract.findAll({
+      attributes: ['id', 'contract_name', 'date_warranty'],
+      where: {
+        contract_status: { [Op.ne]: '未签约' },
+        date_warranty: { [Op.between]: [todayStr, endStr] },
+      },
+      raw: true,
+    }),
+    Bond.findAll({
+      attributes: ['status', 'bond_form', 'date_end'],
+      where: {
+        bond_form: '保函',
+        status: { [Op.ne]: '已退还' },
+        date_end: { [Op.lt]: todayStr },
+      },
+      raw: true,
+    }),
+  ]);
+
+  const bondItems = bondRows
+    .map((bond) => {
+      const plain = bond.get({ plain: true });
+      if (resolveBondDisplayStatus(plain) !== '担保中') return null;
+
+      const contractName = plain.subContract?.contract_name;
+      return {
+        type: 'bond',
+        id: plain.id,
+        title: contractName ? `${contractName} · ${plain.bond_type}` : plain.bond_type,
+        relatedName: contractName || null,
+        dateEnd: plain.date_end,
+        daysLeft: calcDaysLeft(plain.date_end),
+      };
+    })
+    .filter(Boolean);
+
+  const warrantyItems = warrantyRows.map((row) => ({
+    type: 'warranty',
+    id: row.id,
+    title: row.contract_name,
+    relatedName: null,
+    dateEnd: row.date_warranty,
+    daysLeft: calcDaysLeft(row.date_warranty),
+  }));
+
+  const items = [...bondItems, ...warrantyItems].sort((a, b) => a.daysLeft - b.daysLeft);
+  const overdueCount = overdueBondRows.filter(
+    (bond) => resolveBondDisplayStatus(bond) === '已过期',
+  ).length;
+
+  return { days, items, overdueCount };
+}
+
 module.exports = {
   getStatistics,
   getProjectReceiveProgress,
   getTrendData,
+  getUpcomingExpirations,
 };

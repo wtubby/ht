@@ -645,4 +645,19 @@ declare namespace API {
     }>;
     type: string;
   };
+
+  export type DashboardExpirationItem = {
+    type: 'bond' | 'warranty';
+    id: number;
+    title: string;
+    relatedName: string | null;
+    dateEnd: string;
+    daysLeft: number;
+  };
+
+  export type DashboardUpcomingExpirations = {
+    days: number;
+    items: DashboardExpirationItem[];
+    overdueCount: number;
+  };
 }

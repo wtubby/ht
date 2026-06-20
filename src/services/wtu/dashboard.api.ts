@@ -30,6 +30,17 @@ export async function getDashboardTrend(
   }>('/api/dashboard/trend', params, options);
 }
 
+/** 获取到期预警 GET /api/dashboard/upcoming-expirations */
+export async function getUpcomingExpirations(
+  params: { days?: number },
+  options?: { [key: string]: any },
+) {
+  return apiGet<{
+    success: boolean;
+    data: API.DashboardUpcomingExpirations;
+  }>('/api/dashboard/upcoming-expirations', params, { skipErrorHandler: true, ...options });
+}
+
 /** 获取项目收款进度 GET /api/dashboard/project-receive-progress */
 export async function getProjectReceiveProgress(
   params: {
