@@ -48,10 +48,15 @@ const MainContract = sequelize.define('MainContract', {
     allowNull: true,
     comment: '签约日期',
   },
+  warranty_years: {
+    type: DataTypes.DECIMAL(4, 1),
+    allowNull: true,
+    comment: '保修年限（年），用于从竣工日期自动推导保修截止日期',
+  },
   date_warranty: {
     type: DataTypes.DATEONLY,
     allowNull: true,
-    comment: '保修到期日期',
+    comment: '保修到期日期（由竣工日期 + 保修年限自动计算；输入缺失时保留原值或留空）',
   },
   date_start: {
     type: DataTypes.DATEONLY,

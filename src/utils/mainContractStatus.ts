@@ -1,3 +1,5 @@
+import dayjs from 'dayjs';
+
 export type MainContractStatusValue = '未签约' | '执行中' | '已完工' | '已完结';
 
 type StatusInput = {
@@ -57,4 +59,24 @@ export function formatMainContractDateValue(value: unknown): string | undefined 
     return (value as { format: (pattern: string) => string }).format('YYYY-MM-DD');
   }
   return undefined;
+}
+
+function toWarrantyYears(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const years = Number(value);
+  return Number.isFinite(years) && years >= 0 ? years : null;
+}
+
+/** 与后端 computeWarrantyEndDate 规则一致 */
+export function computeWarrantyEndDate(
+  dateEnd?: string | null,
+  warrantyYears?: number | string | null,
+): string | undefined {
+  const end = dateEnd?.trim();
+  const years = toWarrantyYears(warrantyYears);
+  if (!end || years == null) return undefined;
+
+  const months = Math.round(years * 12);
+  const computed = dayjs(end).add(months, 'month');
+  return computed.isValid() ? computed.format('YYYY-MM-DD') : undefined;
 }

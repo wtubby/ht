@@ -12,6 +12,7 @@ import {
 } from '@/hooks';
 import { getApiEntity, getSavedEntityId } from '@/utils/apiResponse';
 import {
+  computeWarrantyEndDate,
   formatMainContractDateValue,
   resolveMainContractStatus,
 } from '@/utils/mainContractStatus';
@@ -26,7 +27,7 @@ import {
   ProFormTextArea,
 } from '@ant-design/pro-components';
 import type { FormInstance } from 'antd';
-import { App, Button, Col, Form, Row, Spin, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Col, DatePicker, Form, InputNumber, Row, Space, Spin, Tag, Tooltip, Typography } from 'antd';
 import type { DefaultOptionType } from 'antd/es/select';
 import dayjs from 'dayjs';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -69,6 +70,8 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
 }) => {
   const { message } = App.useApp();
   const formRef = useRef<FormInstance>();
+  const dateWarrantyManualRef = useRef(false);
+  const skipWarrantyAutoRef = useRef(false);
   const addMutation = useAddMainContract();
   const updateMutation = useUpdateMainContract();
 
@@ -83,6 +86,7 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
     setCanSubmit(false);
     setContractId(null);
     setDetailRecord(undefined);
+    dateWarrantyManualRef.current = false;
     formRef.current?.resetFields();
   }, []);
 
@@ -112,6 +116,7 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
     (data: API.MainContract) => {
       setContractId(data.id ?? null);
       setDetailRecord(data);
+      dateWarrantyManualRef.current = false;
       hydratingRef.current = true;
       try {
         formRef.current?.resetFields();
@@ -181,8 +186,37 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
     getUpdateSuccessMessage,
   });
 
-  const handleValuesChange = () => {
+  const syncWarrantyEndDate = useCallback(() => {
+    const form = formRef.current;
+    if (!form || dateWarrantyManualRef.current) return;
+
+    const dateEnd = formatMainContractDateValue(form.getFieldValue('date_end'));
+    const warrantyYears = form.getFieldValue('warranty_years');
+    const computed = computeWarrantyEndDate(dateEnd, warrantyYears);
+
+    skipWarrantyAutoRef.current = true;
+    form.setFieldValue('date_warranty', computed ? dayjs(computed) : undefined);
+    skipWarrantyAutoRef.current = false;
+  }, []);
+
+  const handleValuesChange = (changedValues: Record<string, unknown>) => {
     markFormDirtyIfNotHydrating();
+
+    if (
+      !hydratingRef.current &&
+      changedValues.date_warranty !== undefined &&
+      !skipWarrantyAutoRef.current
+    ) {
+      dateWarrantyManualRef.current = true;
+    }
+
+    if (
+      !hydratingRef.current &&
+      (changedValues.date_end !== undefined || changedValues.warranty_years !== undefined)
+    ) {
+      syncWarrantyEndDate();
+    }
+
     const form = formRef.current;
     if (!form) return;
 
@@ -291,9 +325,6 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
                         <div>
                           <Tag color={getContractStatusColor(status)}>{status}</Tag>
                           <div>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              根据签约/竣工日期及收开票金额自动计算
-                            </Text>
                           </div>
                         </div>
                       );
@@ -383,19 +414,6 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
                 </Col>
                 <Col span={12}>
                   <ProFormDatePicker
-                    label="保修截止"
-                    name="date_warranty"
-                    placeholder="请选择保修到期日期"
-                    labelCol={{ span: 8 }}
-                    wrapperCol={{ span: 16 }}
-                  />
-                </Col>
-                
-              </Row>
-
-              <Row gutter={16} style={{ marginBottom: 8 }}>
-              <Col span={12}>
-                  <ProFormDatePicker
                     label="开工日期"
                     name="date_start"
                     placeholder="请选择开工日期"
@@ -403,6 +421,9 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
                     wrapperCol={{ span: 16 }}
                   />
                 </Col>
+              </Row>
+
+              <Row gutter={16} style={{ marginBottom: 8 }}>
                 <Col span={12}>
                   <ProFormDatePicker
                     label="竣工日期"
@@ -411,7 +432,35 @@ const MainContractForm: React.FC<MainContractFormProps> = ({
                     labelCol={{ span: 8 }}
                     wrapperCol={{ span: 16 }}
                   />
-                </Col>                
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="保修"
+                    labelCol={{ span: 8 }}
+                    wrapperCol={{ span: 16 }}
+                    extra="根据竣工日期计算，可手动修改"
+                  >
+                    <Space.Compact style={{ width: '100%' }}>
+                      <Form.Item name="warranty_years" noStyle>
+                        <InputNumber
+                          min={0}
+                          precision={1}
+                          placeholder="年限"
+                          controls={false}
+                          addonAfter="年"
+                          style={{ width: '35%' }}
+                        />
+                      </Form.Item>
+                      <Form.Item name="date_warranty" noStyle>
+                        <DatePicker
+                          placeholder="保修截止日期"
+                          format="YYYY-MM-DD"
+                          style={{ width: '65%' }}
+                        />
+                      </Form.Item>
+                    </Space.Compact>
+                  </Form.Item>
+                </Col>
               </Row>
 
               <ProFormTextArea

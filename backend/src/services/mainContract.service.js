@@ -8,6 +8,7 @@ const { resolveListPagination } = require('../utils/listPagination');
 const {
   getMainContractTotals,
   resolveMainContractStatus,
+  resolveDateWarrantyOnWrite,
 } = require('../utils/mainContractStatus');
 
 const {
@@ -70,6 +71,7 @@ const MAIN_CONTRACT_WRITABLE_FIELDS = [
   'amount_contract',
   'amount_settlement',
   'date_signed',
+  'warranty_years',
   'date_warranty',
   'date_start',
   'date_end',
@@ -84,6 +86,11 @@ async function createMainContract(body, userId) {
   for (const key of MAIN_CONTRACT_WRITABLE_FIELDS) {
     data[key] = body[key];
   }
+  data.date_warranty = resolveDateWarrantyOnWrite({
+    date_end: data.date_end,
+    warranty_years: data.warranty_years,
+    date_warranty: data.date_warranty,
+  });
   data.contract_status = resolveMainContractStatus(data, {
     total_received: 0,
     total_invoiced: 0,
@@ -177,8 +184,15 @@ async function updateMainContract(id, body, userId) {
   }
 
   const merged = { ...existing.toJSON(), ...updates };
+  updates.date_warranty = resolveDateWarrantyOnWrite({
+    date_end: merged.date_end,
+    warranty_years: merged.warranty_years,
+    date_warranty: body.date_warranty !== undefined ? body.date_warranty : existing.date_warranty,
+  });
+
+  const mergedForStatus = { ...merged, date_warranty: updates.date_warranty };
   const totals = await getMainContractTotals(id);
-  updates.contract_status = resolveMainContractStatus(merged, totals);
+  updates.contract_status = resolveMainContractStatus(mergedForStatus, totals);
 
   const [num] = await MainContract.update(updates, { where: { id } });
 

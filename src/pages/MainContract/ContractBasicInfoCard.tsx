@@ -117,13 +117,20 @@ const ContractBasicInfoCard: React.FC<ContractBasicInfoCardProps> = ({
             <Descriptions.Item label="签约日期">
               {currentRecord.date_signed || '-'}
             </Descriptions.Item>
-            <Descriptions.Item label="保修截止">
-              {currentRecord.date_warranty || '-'}
+            <Descriptions.Item label="保修日期">
+              {currentRecord.warranty_years != null && currentRecord.date_warranty
+                ? `${currentRecord.warranty_years}年（${currentRecord.date_warranty}截止）`
+                : currentRecord.warranty_years != null
+                  ? `${currentRecord.warranty_years}年`
+                  : currentRecord.date_warranty
+                    ? `${currentRecord.date_warranty}截止`
+                    : '-'}
             </Descriptions.Item>
             <Descriptions.Item label="开工日期">
               {currentRecord.date_start || '-'}
             </Descriptions.Item>
             <Descriptions.Item label="竣工日期">{currentRecord.date_end || '-'}</Descriptions.Item>
+           
             <Descriptions.Item label="备注" span={2}>
               <div
                 style={{

@@ -78,6 +78,7 @@ declare namespace API {
     amount_contract: number;
     amount_settlement?: number;
     date_signed?: string;
+    warranty_years?: number;
     date_warranty?: string;
     date_start?: string;
     date_end?: string;
