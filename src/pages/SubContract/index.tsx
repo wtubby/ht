@@ -1,14 +1,22 @@
 ﻿import type { ActionType } from '@ant-design/pro-components';
-import React, { useRef, useState } from 'react';
+import { useSearchParams } from '@umijs/max';
+import React, { useMemo, useRef, useState } from 'react';
+import { pickSearchParams } from '@/utils/listSearchParams';
 import SubContractDetail from './SubContractDetail';
 import SubContractForm from './SubContractForm';
 import SubContractList from './SubContractList';
 
 const SubContractsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [currentRecord, setCurrentRecord] = useState<API.SubContract | undefined>(undefined);
   const [formVisible, setFormVisible] = useState<boolean>(false);
   const [detailVisible, setDetailVisible] = useState<boolean>(false);
   const actionRef = useRef<ActionType>();
+
+  const initialFilters = useMemo(
+    () => pickSearchParams(searchParams, ['contract_status', 'contract_type']),
+    [searchParams],
+  );
 
   const handleViewDetail = (record: API.SubContract) => {
     if (!record.id) return;
@@ -51,6 +59,7 @@ const SubContractsPage: React.FC = () => {
         onViewDetail={handleViewDetail}
         onEdit={handleEdit}
         onCreate={handleCreate}
+        initialFilters={initialFilters}
       />
       <SubContractForm
         visible={formVisible}

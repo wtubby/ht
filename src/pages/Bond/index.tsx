@@ -1,9 +1,10 @@
 ﻿import { useSearchParams } from '@umijs/max';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { BondCreatePreset, BondType } from './bond.shared';
 import BondDetail from './BondDetail';
 import BondForm from './BondForm';
 import BondList, { BondListRef } from './BondList';
+import { pickSearchParams } from '@/utils/listSearchParams';
 
 const BondsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,6 +14,14 @@ const BondsPage: React.FC = () => {
   const [createPreset, setCreatePreset] = useState<BondCreatePreset | undefined>(undefined);
   const bondListRef = useRef<BondListRef>(null);
   const registeredBondIdRef = useRef<number | null>(null);
+
+  const initialFilters = useMemo(() => {
+    const filters = pickSearchParams(searchParams, ['status']);
+    if (!searchParams.get('sub_contract_id')) {
+      Object.assign(filters, pickSearchParams(searchParams, ['bond_type']));
+    }
+    return filters;
+  }, [searchParams]);
 
   useEffect(() => {
     const bondId = searchParams.get('bond_id');
@@ -104,6 +113,7 @@ const BondsPage: React.FC = () => {
         onViewDetail={handleViewDetail}
         onEdit={handleEdit}
         onCreate={handleCreate}
+        initialFilters={initialFilters}
       />
       <BondForm
         visible={formVisible}

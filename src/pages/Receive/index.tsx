@@ -1,14 +1,22 @@
 ﻿import type { ActionType } from '@ant-design/pro-components';
-import React, { useRef, useState } from 'react';
+import { useSearchParams } from '@umijs/max';
+import React, { useMemo, useRef, useState } from 'react';
+import { pickSearchParams } from '@/utils/listSearchParams';
 import ReceiveDetail from './ReceiveDetail';
 import ReceiveForm from './ReceiveForm';
 import ReceiveList from './ReceiveList';
 
 const ReceivePage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [currentRecord, setCurrentRecord] = useState<API.Receive | undefined>(undefined);
   const [formVisible, setFormVisible] = useState<boolean>(false);
   const [detailVisible, setDetailVisible] = useState<boolean>(false);
   const actionRef = useRef<ActionType>();
+
+  const initialFilters = useMemo(
+    () => pickSearchParams(searchParams, ['receive_status']),
+    [searchParams],
+  );
 
   const handleViewDetail = async (record: API.Receive) => {
     setFormVisible(false);
@@ -49,6 +57,7 @@ const ReceivePage: React.FC = () => {
         onViewDetail={handleViewDetail}
         onEdit={handleEdit}
         onCreate={handleCreate}
+        initialFilters={initialFilters}
       />
       <ReceiveForm
         visible={formVisible}

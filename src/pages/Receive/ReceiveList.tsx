@@ -27,9 +27,16 @@ interface ReceiveListProps {
   onViewDetail: (record: API.Receive) => void;
   onEdit: (record: API.Receive) => void;
   onCreate: () => void;
+  initialFilters?: { receive_status?: string };
 }
 
-const ReceiveList: React.FC<ReceiveListProps> = ({ actionRef, onViewDetail, onEdit, onCreate }) => {
+const ReceiveList: React.FC<ReceiveListProps> = ({
+  actionRef,
+  onViewDetail,
+  onEdit,
+  onCreate,
+  initialFilters,
+}) => {
   const { message, modal } = App.useApp();
   const removeMutation = useRemoveReceive();
   const searchTextRef = useRef<string>('');
@@ -77,8 +84,16 @@ const ReceiveList: React.FC<ReceiveListProps> = ({ actionRef, onViewDetail, onEd
       {
         title: '收款状态',
         dataIndex: 'receive_status',
-        valueEnum: receiveStatusColors,
-        width: 70,
+        filters: Object.keys(receiveStatusColors).map((status) => ({
+          text: status,
+          value: status,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.receive_status
+          ? [initialFilters.receive_status]
+          : undefined,
+        search: false,
+        width: 90,
         align: 'center',
         render: (_, record) => (
           <Tag color={getReceiveStatusColor(record.receive_status ?? '')}>
@@ -128,6 +143,7 @@ const ReceiveList: React.FC<ReceiveListProps> = ({ actionRef, onViewDetail, onEd
       {
         title: '收款户名',
         dataIndex: 'account_name',
+        search: false,
         width: 160,
         ellipsis: true,
         render: (_, record) => record.account_name || '-',
@@ -204,7 +220,7 @@ const ReceiveList: React.FC<ReceiveListProps> = ({ actionRef, onViewDetail, onEd
         ),
       },
     ],
-    [onViewDetail, onEdit, modal, handleRemove],
+    [initialFilters?.receive_status, onViewDetail, onEdit, modal, handleRemove],
   );
 
   const toolBarRender = useCallback(
@@ -220,18 +236,32 @@ const ReceiveList: React.FC<ReceiveListProps> = ({ actionRef, onViewDetail, onEd
     [handleSearch, onCreate],
   );
 
-  const requestHandler = useCallback(async (params: API.PageParams) => {
-    const msg = await getReceiveList({
-      page: params.current,
-      pageSize: params.pageSize,
-      contract_name: searchTextRef.current || undefined,
-    });
-    return {
-      data: msg.data,
-      success: msg.success,
-      total: msg.total,
-    };
-  }, []);
+  const requestHandler = useCallback(
+    async (
+      params: API.PageParams,
+      _sort: Record<string, 'ascend' | 'descend' | null>,
+      filter?: Record<string, (string | number)[] | null>,
+    ) => {
+      const statusValues = filter?.receive_status;
+      const receive_status =
+        Array.isArray(statusValues) && statusValues.length > 0
+          ? String(statusValues[0])
+          : undefined;
+
+      const msg = await getReceiveList({
+        page: params.current,
+        pageSize: params.pageSize,
+        contract_name: searchTextRef.current || undefined,
+        receive_status,
+      });
+      return {
+        data: msg.data,
+        success: msg.success,
+        total: msg.total,
+      };
+    },
+    [],
+  );
 
   return (
     <PageContainer pageHeaderRender={false}>

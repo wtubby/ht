@@ -14,7 +14,7 @@ import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { App, Tag, Tooltip } from 'antd';
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 
 // 扩展MainContract类型以包含has_files属性
 type MainContractWithFiles = API.MainContract & {
@@ -26,6 +26,7 @@ interface MainContractListProps {
   onViewDetail: (record: MainContractWithFiles) => void;
   onEdit: (record: MainContractWithFiles) => void;
   onCreate: () => void;
+  initialFilters?: { contract_status?: string };
 }
 
 const MainContractList: React.FC<MainContractListProps> = ({
@@ -33,13 +34,13 @@ const MainContractList: React.FC<MainContractListProps> = ({
   onViewDetail,
   onEdit,
   onCreate,
+  initialFilters,
 }) => {
   const { message, modal } = App.useApp();
   const internalActionRef = useRef<ActionType>();
   const actionRef = externalActionRef || internalActionRef;
   const searchTextRef = useRef<string>('');
 
-  // 使用 TanStack Query 的删除 mutation
   const removeMutation = useRemoveMainContract();
 
   const handleRemove = async (selectedRow: MainContractWithFiles) => {
@@ -67,127 +68,149 @@ const MainContractList: React.FC<MainContractListProps> = ({
     actionRef.current?.reload();
   };
 
-  const columns: ProColumns<MainContractWithFiles>[] = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      width: 40,
-      align: 'center',
-    },
-    {
-      title: '签约日期',
-      dataIndex: 'date_signed',
-      valueType: 'date',
-      width: 70,
-      align: 'center',
-    },
-    {
-      title: '合同状态',
-      dataIndex: 'contract_status',
-      valueEnum: contractStatusColors,
-      width: 60,
-      align: 'center',
-      render: (_, record) => (
-        <Tag color={getContractStatusColor(record.contract_status!)}>{record.contract_status}</Tag>
-      ),
-    },
-    {
-      title: '合同名称',
-      dataIndex: 'contract_name',
-      ellipsis: true,
-      width: 260,
-      render: (text, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <AttachmentIndicator
-            visible={record.has_files}
-            title="已上传合同文件"
-            color={MODULE_COLORS.mainContract.color}
-          />
-          <a
-            onClick={() => onViewDetail(record)}
-            style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
-          >
-            {text}
-          </a>
-        </div>
-      ),
-    },
-    {
-      title: '发包单位',
-      dataIndex: ['partyA', 'company_name'],
-      width: 180,
-      ellipsis: true,
-    },
-    {
-      title: '开工日期',
-      dataIndex: 'date_start',
-      valueType: 'date',
-      width: 70,
-      align: 'center',
-    },
-    {
-      title: '竣工日期',
-      dataIndex: 'date_end',
-      valueType: 'date',
-      width: 70,
-      align: 'center',
-    },
-    {
-      title: '合同金额(元)',
-      dataIndex: 'amount_contract',
-      width: 90,
-      align: 'right',
-      render: (text) => formatAmountOrDash(text),
-    },
-    {
-      title: '结算金额(元)',
-      dataIndex: 'amount_settlement',
-      width: 90,
-      align: 'right',
-      render: (text) => formatAmountOrDash(text),
-    },
-    {
-      title: '收款(元)',
-      dataIndex: 'total_received',
-      width: 90,
-      align: 'right',
-      tooltip: RECEIVE_AMOUNT_STAT_HINT,
-      render: (text, record) => renderAmountWithPercentage(text, record),
-    },
-    {
-      title: '开票(元)',
-      dataIndex: 'total_invoiced',
-      width: 90,
-      align: 'right',
-      render: (text, record) => renderAmountWithPercentage(text, record),
-    },
-    {
-      title: '操作',
-      dataIndex: 'option',
-      valueType: 'option',
-      width: 50,
-      align: 'center',
-      render: (_, record) => [
-        <Tooltip key="edit" title="编辑">
-          <EditOutlined
-            style={{ fontSize: '16px', color: UI_COLORS.action, cursor: 'pointer' }}
-            onClick={() => onEdit(record)}
-          />
-        </Tooltip>,
-        <Tooltip key="delete" title="删除">
-          <DeleteOutlined
-            style={{
-              fontSize: '16px',
-              color: UI_COLORS.actionDanger,
-              cursor: 'pointer',
-              marginLeft: '12px',
-            }}
-            onClick={() => confirmRemove(record)}
-          />
-        </Tooltip>,
-      ],
-    },
-  ];
+  const columns: ProColumns<MainContractWithFiles>[] = useMemo(
+    () => [
+      {
+        title: 'ID',
+        dataIndex: 'id',
+        search: false,
+        width: 40,
+        align: 'center',
+      },
+      {
+        title: '签约日期',
+        dataIndex: 'date_signed',
+        valueType: 'date',
+        search: false,
+        width: 70,
+        align: 'center',
+      },
+      {
+        title: '合同状态',
+        dataIndex: 'contract_status',
+        filters: Object.keys(contractStatusColors).map((status) => ({
+          text: status,
+          value: status,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.contract_status
+          ? [initialFilters.contract_status]
+          : undefined,
+        search: false,
+        width: 90,
+        align: 'center',
+        render: (_, record) => (
+          <Tag color={getContractStatusColor(record.contract_status!)}>{record.contract_status}</Tag>
+        ),
+      },
+      {
+        title: '合同名称',
+        dataIndex: 'contract_name',
+        search: false,
+        ellipsis: true,
+        width: 260,
+        render: (text, record) => (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <AttachmentIndicator
+              visible={record.has_files}
+              title="已上传合同文件"
+              color={MODULE_COLORS.mainContract.color}
+            />
+            <a
+              onClick={() => onViewDetail(record)}
+              style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
+              {text}
+            </a>
+          </div>
+        ),
+      },
+      {
+        title: '发包单位',
+        dataIndex: ['partyA', 'company_name'],
+        search: false,
+        width: 180,
+        ellipsis: true,
+      },
+      {
+        title: '开工日期',
+        dataIndex: 'date_start',
+        valueType: 'date',
+        search: false,
+        width: 70,
+        align: 'center',
+      },
+      {
+        title: '竣工日期',
+        dataIndex: 'date_end',
+        valueType: 'date',
+        search: false,
+        width: 70,
+        align: 'center',
+      },
+      {
+        title: '合同金额(元)',
+        dataIndex: 'amount_contract',
+        search: false,
+        width: 90,
+        align: 'right',
+        render: (text) => formatAmountOrDash(text),
+      },
+      {
+        title: '结算金额(元)',
+        dataIndex: 'amount_settlement',
+        search: false,
+        width: 90,
+        align: 'right',
+        render: (text) => formatAmountOrDash(text),
+      },
+      {
+        title: '收款(元)',
+        dataIndex: 'total_received',
+        search: false,
+        width: 90,
+        align: 'right',
+        tooltip: RECEIVE_AMOUNT_STAT_HINT,
+        render: (text, record) => renderAmountWithPercentage(text, record),
+      },
+      {
+        title: '开票(元)',
+        dataIndex: 'total_invoiced',
+        search: false,
+        width: 90,
+        align: 'right',
+        render: (text, record) => renderAmountWithPercentage(text, record),
+      },
+      {
+        title: '操作',
+        dataIndex: 'option',
+        valueType: 'option',
+        search: false,
+        width: 50,
+        align: 'center',
+        render: (_, record) => [
+          <Tooltip key="edit" title="编辑">
+            <EditOutlined
+              style={{ fontSize: '16px', color: UI_COLORS.action, cursor: 'pointer' }}
+              onClick={() => onEdit(record)}
+            />
+          </Tooltip>,
+          <Tooltip key="delete" title="删除">
+            <DeleteOutlined
+              style={{
+                fontSize: '16px',
+                color: UI_COLORS.actionDanger,
+                cursor: 'pointer',
+                marginLeft: '12px',
+              }}
+              onClick={() => confirmRemove(record)}
+            />
+          </Tooltip>,
+        ],
+      },
+    ],
+    [initialFilters?.contract_status, onViewDetail, onEdit, confirmRemove],
+  );
 
   return (
     <PageContainer pageHeaderRender={false}>
@@ -210,11 +233,18 @@ const MainContractList: React.FC<MainContractListProps> = ({
             onCreate={onCreate}
           />,
         ]}
-        request={async (params) => {
+        request={async (params, _sort, filter) => {
+          const statusValues = filter?.contract_status;
+          const contract_status =
+            Array.isArray(statusValues) && statusValues.length > 0
+              ? String(statusValues[0])
+              : undefined;
+
           const msg = await getMainContracts({
             page: params.current,
             pageSize: params.pageSize,
             contract_name: searchTextRef.current || undefined,
+            contract_status,
           });
 
           return {

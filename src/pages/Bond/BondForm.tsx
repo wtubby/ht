@@ -61,11 +61,11 @@ const mergeSubContractIntoList = (list: API.SubContract[], record?: API.Bond) =>
   if (list.some((c) => c.id === record.sub_contract_id)) {
     return list;
   }
-  const nested = record.subContract;
+  const nested = record.subContract as API.SubContract;
   return [
     {
       id: record.sub_contract_id,
-      main_contract_id: nested.mainContract?.id ?? record.sub_contract_id,
+      main_contract_id: nested.main_contract_id ?? nested.mainContract?.id ?? null,
       contract_name: nested.contract_name ?? '',
       contract_type: '专业分包',
       party_b_id: 0,
@@ -268,11 +268,14 @@ const BondForm: React.FC<BondFormProps> = ({
       markFormClean();
 
       if (data.sub_contract_id) {
-        const contract = (data.subContract as API.SubContract | undefined) ?? null;
+        const contract =
+          (data.subContract as API.SubContract | undefined) ??
+          subContracts.find((item) => item.id === data.sub_contract_id) ??
+          null;
         applySelectedSubContract(contract, data.sub_contract_id);
       }
     },
-    [form, applySelectedSubContract, markFormClean],
+    [form, applySelectedSubContract, markFormClean, subContracts],
   );
 
   const detailId = visible ? effectiveId : undefined;
@@ -579,6 +582,22 @@ const BondForm: React.FC<BondFormProps> = ({
   const activeBondType = watchedBondType || '履约保证金';
   const bondForm: BondFormValue = watchedBondForm || '现金';
   const plannedHint = selectedContract?.bond_registry?.[activeBondType];
+  const mainContractIdForUpload = useMemo(() => {
+    const candidates = [
+      mainContractId,
+      resolveMainContractId(selectedContract),
+      resolveMainContractId(detailRecord?.subContract as API.SubContract | undefined),
+    ];
+    for (const candidate of candidates) {
+      if (candidate) return candidate;
+    }
+    if (selectedSubContractId) {
+      return resolveMainContractId(subContracts.find((item) => item.id === selectedSubContractId) ?? null);
+    }
+    return null;
+  }, [detailRecord?.subContract, mainContractId, selectedContract, selectedSubContractId, subContracts]);
+  const subContractIdForUpload =
+    selectedSubContractId ?? detailRecord?.sub_contract_id ?? currentRecord?.sub_contract_id ?? undefined;
   const showAmountDeviationHint =
     !isNonGuaranteeStatus &&
     hasBondAmountDeviation(plannedHint?.planned_amount ?? null, watchedAmount);
@@ -927,10 +946,10 @@ const BondForm: React.FC<BondFormProps> = ({
                 <div>
                   <BusinessFileUploader
                     moduleType="FB_BOND"
-                    mainContractId={mainContractId ?? undefined}
-                    subContractId={selectedSubContractId ?? undefined}
+                    mainContractId={mainContractIdForUpload ?? undefined}
+                    subContractId={subContractIdForUpload}
                     recordId={effectiveId ?? undefined}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || (detailLoading && !mainContractIdForUpload)}
                     onFilesChanged={markFilesDirty}
                   />
                 </div>

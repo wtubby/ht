@@ -658,6 +658,7 @@ declare namespace API {
   export type DashboardUpcomingExpirations = {
     days: number;
     items: DashboardExpirationItem[];
+    overdueItems: DashboardExpirationItem[];
     overdueCount: number;
   };
 }

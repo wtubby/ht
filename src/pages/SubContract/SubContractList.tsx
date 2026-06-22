@@ -2,6 +2,8 @@ import AttachmentIndicator from '@/components/AttachmentIndicator';
 import ListToolbar from '@/components/ListToolbar';
 import { MODULE_COLORS, UI_COLORS } from '@/constants/colors';
 import {
+  contractStatusColors,
+  contractTypeColors,
   getBondDisplayStatusHex,
   getContractStatusColor,
   getContractTypeColor,
@@ -23,6 +25,7 @@ interface SubContractListProps {
   onViewDetail: (record: API.SubContract) => void;
   onEdit: (record: API.SubContract) => void;
   onCreate: () => void;
+  initialFilters?: { contract_status?: string; contract_type?: string };
 }
 
 const SubContractList: React.FC<SubContractListProps> = ({
@@ -30,6 +33,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
   onViewDetail,
   onEdit,
   onCreate,
+  initialFilters,
 }) => {
   const { message, modal } = App.useApp();
   const internalActionRef = useRef<ActionType>();
@@ -75,13 +79,23 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: 'ID',
         dataIndex: 'id',
+        search: false,
         width: 40,
         align: 'center',
       },
       {
         title: '状态',
         dataIndex: 'contract_status',
-        width: 50,
+        filters: Object.keys(contractStatusColors).map((status) => ({
+          text: status,
+          value: status,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.contract_status
+          ? [initialFilters.contract_status]
+          : undefined,
+        search: false,
+        width: 80,
         align: 'center',
         render: (_, record) => (
           <Tag color={getContractStatusColor(record.contract_status!)}>
@@ -92,7 +106,16 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: '合同类型',
         dataIndex: 'contract_type',
-        width: 60,
+        filters: Object.keys(contractTypeColors).map((type) => ({
+          text: type,
+          value: type,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.contract_type
+          ? [initialFilters.contract_type]
+          : undefined,
+        search: false,
+        width: 90,
         align: 'center',
         render: (_, record) => (
           <Tag color={getContractTypeColor(record.contract_type!)}>{record.contract_type}</Tag>
@@ -102,12 +125,14 @@ const SubContractList: React.FC<SubContractListProps> = ({
         title: '签约日期',
         dataIndex: 'date_signed',
         valueType: 'date',
+        search: false,
         width: 70,
         align: 'center',
       },
       {
         title: '担保',
         dataIndex: 'bonds',
+        search: false,
         width: 50,
         align: 'center',
         render: (_, record) => {
@@ -163,6 +188,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: '分包合同名称',
         dataIndex: 'contract_name',
+        search: false,
         ellipsis: true,
         width: 260,
         render: (text, record) => (
@@ -184,12 +210,14 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: '分包单位',
         dataIndex: ['partyC', 'company_name'],
+        search: false,
         width: 160,
         ellipsis: true,
       },
       {
         title: '合同金额(元)',
         dataIndex: 'amount_contract',
+        search: false,
         width: 80,
         align: 'right',
         render: (text) => formatAmountOrDash(text),
@@ -197,6 +225,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: '结算金额(元)',
         dataIndex: 'amount_settlement',
+        search: false,
         width: 80,
         align: 'right',
         render: (text) => formatAmountOrDash(text),
@@ -204,6 +233,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: '付款(元)',
         dataIndex: 'total_paid',
+        search: false,
         width: 80,
         align: 'right',
         render: (text, record) => renderAmountWithPercentage(text, record),
@@ -211,6 +241,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
       {
         title: '发票(元)',
         dataIndex: 'total_invoiced',
+        search: false,
         width: 80,
         align: 'right',
         render: (text, record) => renderAmountWithPercentage(text, record),
@@ -219,6 +250,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
         title: '操作',
         dataIndex: 'option',
         valueType: 'option',
+        search: false,
         width: 60,
         align: 'center',
         render: (_, record) => [
@@ -242,7 +274,7 @@ const SubContractList: React.FC<SubContractListProps> = ({
         ],
       },
     ],
-    [onViewDetail, onEdit, confirmRemove],
+    [initialFilters?.contract_status, initialFilters?.contract_type, onViewDetail, onEdit, confirmRemove],
   );
 
   return (
@@ -266,11 +298,24 @@ const SubContractList: React.FC<SubContractListProps> = ({
             onCreate={onCreate}
           />,
         ]}
-        request={async (params) => {
+        request={async (params, _sort, filter) => {
+          const statusValues = filter?.contract_status;
+          const typeValues = filter?.contract_type;
+          const contract_status =
+            Array.isArray(statusValues) && statusValues.length > 0
+              ? String(statusValues[0])
+              : undefined;
+          const contract_type =
+            Array.isArray(typeValues) && typeValues.length > 0
+              ? String(typeValues[0])
+              : undefined;
+
           const res = await getSubContracts({
             page: params.current,
             pageSize: params.pageSize,
             contract_name: searchTextRef.current || undefined,
+            contract_status,
+            contract_type,
           });
           return {
             data: res.data,

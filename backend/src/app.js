@@ -30,7 +30,7 @@ app.use(cors(corsOptions));
 // 请求速率限制
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100, // 限制每个IP 100次请求
+  max: 1000, // 限制每个IP 100次请求
   message: '请求过于频繁，请稍后再试',
   standardHeaders: true,
   legacyHeaders: false,

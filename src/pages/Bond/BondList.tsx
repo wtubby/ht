@@ -2,6 +2,7 @@ import AttachmentIndicator from '@/components/AttachmentIndicator';
 import ListToolbar from '@/components/ListToolbar';
 import { MODULE_COLORS, UI_COLORS } from '@/constants/colors';
 import {
+  bondStatusColors,
   bondTypeColors,
   getBondDisplayStatusColor,
   getBondTypeColor,
@@ -30,6 +31,8 @@ import {
 } from './bond.shared';
 import BondPendingTable from './BondPendingTable';
 
+const BOND_FORM_OPTIONS = ['现金', '保函'] as const;
+
 type BondWithFiles = API.Bond & {
   has_files?: boolean;
 };
@@ -38,6 +41,7 @@ interface BondListProps {
   onViewDetail: (record: BondWithFiles) => void;
   onEdit: (record: BondWithFiles) => void;
   onCreate: (preset?: BondCreatePreset) => void;
+  initialFilters?: { status?: string; bond_type?: string; bond_form?: string };
 }
 
 export interface BondListRef {
@@ -47,7 +51,7 @@ export interface BondListRef {
 }
 
 const BondList = forwardRef<BondListRef, BondListProps>(
-  ({ onViewDetail, onEdit, onCreate }, ref) => {
+  ({ onViewDetail, onEdit, onCreate, initialFilters }, ref) => {
     const { message, modal } = App.useApp();
     const actionRef = useRef<ActionType>();
     const searchTextRef = useRef<string>('');
@@ -105,7 +109,8 @@ const BondList = forwardRef<BondListRef, BondListProps>(
       actionRef.current?.reload();
     };
 
-    const columns: ProColumns<BondWithFiles>[] = [
+    const columns: ProColumns<BondWithFiles>[] = useMemo(
+      () => [
       {
         title: 'ID',
         dataIndex: 'id',
@@ -116,6 +121,7 @@ const BondList = forwardRef<BondListRef, BondListProps>(
       {
         title: '分包合同',
         dataIndex: ['subContract', 'contract_name'],
+        search: false,
         width: 260,
         ellipsis: true,
         render: (_, record) => (
@@ -145,8 +151,14 @@ const BondList = forwardRef<BondListRef, BondListProps>(
       {
         title: '担保类型',
         dataIndex: 'bond_type',
-        valueEnum: bondTypeColors,
-        width: 90,
+        filters: Object.keys(bondTypeColors).map((type) => ({
+          text: type,
+          value: type,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.bond_type ? [initialFilters.bond_type] : undefined,
+        search: false,
+        width: 100,
         align: 'center',
         render: (_, record) => (
           <Tag color={getBondTypeColor(record.bond_type!)}>{record.bond_type}</Tag>
@@ -155,17 +167,29 @@ const BondList = forwardRef<BondListRef, BondListProps>(
       {
         title: '形式',
         dataIndex: 'bond_form',
-        width: 60,
-        align: 'center',
+        filters: BOND_FORM_OPTIONS.map((form) => ({
+          text: form,
+          value: form,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.bond_form ? [initialFilters.bond_form] : undefined,
         search: false,
+        width: 80,
+        align: 'center',
         render: (_, record) => record.bond_form || '-',
       },
       {
         title: '状态',
-        dataIndex: 'display_status',
+        dataIndex: 'status',
+        filters: Object.keys(bondStatusColors).map((status) => ({
+          text: status,
+          value: status,
+        })),
+        filterMultiple: false,
+        defaultFilteredValue: initialFilters?.status ? [initialFilters.status] : undefined,
+        search: false,
         width: 100,
         align: 'center',
-        search: false,
         render: (_, record) => {
           const displayStatus = record.display_status || record.status;
           return (
@@ -276,7 +300,16 @@ const BondList = forwardRef<BondListRef, BondListProps>(
           </Tooltip>,
         ],
       },
-    ];
+    ],
+      [
+        initialFilters?.bond_type,
+        initialFilters?.status,
+        initialFilters?.bond_form,
+        onViewDetail,
+        onEdit,
+        modal,
+      ],
+    );
 
     return (
       <PageContainer pageHeaderRender={false}>
@@ -334,11 +367,34 @@ const BondList = forwardRef<BondListRef, BondListProps>(
               }
               return data;
             }}
-            request={async (params) => {
+            request={async (
+              params,
+              _sort: Record<string, 'ascend' | 'descend' | null>,
+              filter?: Record<string, (string | number)[] | null>,
+            ) => {
+              const statusValues = filter?.status;
+              const typeValues = filter?.bond_type;
+              const formValues = filter?.bond_form;
+              const status =
+                Array.isArray(statusValues) && statusValues.length > 0
+                  ? String(statusValues[0])
+                  : undefined;
+              const bond_type =
+                Array.isArray(typeValues) && typeValues.length > 0
+                  ? String(typeValues[0])
+                  : undefined;
+              const bond_form =
+                Array.isArray(formValues) && formValues.length > 0
+                  ? String(formValues[0])
+                  : undefined;
+
               const response = await getBonds({
                 page: params.current,
                 pageSize: params.pageSize,
                 search: searchTextRef.current || undefined,
+                status,
+                bond_type,
+                bond_form,
               });
               return {
                 data: response.data,

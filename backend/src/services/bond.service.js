@@ -234,7 +234,13 @@ async function assertBondUnique(subContractId, bondType, excludeId) {
 function formatBondResult(bond, subContract) {
   const plain = bond.get({ plain: true });
   plain.display_status = resolveBondDisplayStatus(plain);
-  enrichBondPlain(plain, subContract || plain.subContract);
+  const nestedSub = subContract
+    ? (typeof subContract.get === 'function' ? subContract.get({ plain: true }) : subContract)
+    : plain.subContract;
+  if (nestedSub) {
+    plain.subContract = nestedSub;
+  }
+  enrichBondPlain(plain, nestedSub);
   return plain;
 }
 

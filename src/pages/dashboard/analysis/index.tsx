@@ -379,12 +379,17 @@ const ExpirationAlert: React.FC<{
     );
   }
 
-  const items = data?.items ?? [];
-  const overdueCount = data?.overdueCount ?? 0;
-  if (items.length === 0 && overdueCount === 0) return null;
+  const allItems = data?.items ?? [];
+  const overdueItems = data?.overdueItems?.length
+    ? data.overdueItems
+    : allItems.filter((item) => item.daysLeft < 0);
+  const upcomingItems = allItems.filter((item) => item.daysLeft >= 0);
+  const overdueCount = overdueItems.length;
+  const overdueBondCount = overdueItems.filter((item) => item.type === 'bond').length;
+  if (allItems.length === 0) return null;
 
-  const bondCount = items.filter((item) => item.type === 'bond').length;
-  const warrantyCount = items.filter((item) => item.type === 'warranty').length;
+  const bondCount = upcomingItems.filter((item) => item.type === 'bond').length;
+  const warrantyCount = upcomingItems.filter((item) => item.type === 'warranty').length;
   const parts: string[] = [];
   if (bondCount > 0) parts.push(`保函 ${bondCount} 项`);
   if (warrantyCount > 0) parts.push(`保修 ${warrantyCount} 项`);
@@ -394,7 +399,47 @@ const ExpirationAlert: React.FC<{
       history.push(`/bonds?bond_id=${item.id}`);
       return;
     }
-    history.push('/main-contracts');
+    history.push(`/main-contracts?contract_id=${item.id}`);
+  };
+
+  const handleViewAllOverdueBonds = () => {
+    history.push(`/bonds?status=${encodeURIComponent('已过期')}`);
+  };
+
+  const renderExpirationItem = (item: API.DashboardExpirationItem) => {
+    const isOverdue = item.daysLeft < 0;
+    return (
+      <List.Item
+        key={`${item.type}-${item.id}`}
+        style={{ padding: '8px 16px', cursor: 'pointer' }}
+        onClick={() => handleItemClick(item)}
+      >
+        <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 12 }}>
+          <Text style={{ flex: 1 }} ellipsis>
+            {item.title}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+            {item.type === 'bond' ? '保函' : '保修'}
+          </Text>
+          <Text
+            style={{
+              fontSize: 12,
+              flexShrink: 0,
+              color: isOverdue ? COLORS.danger : expirationDaysLeftColor(item.daysLeft),
+            }}
+          >
+            {isOverdue
+              ? `已逾期 ${Math.abs(item.daysLeft)} 天`
+              : item.daysLeft === 0
+                ? '今日到期'
+                : `剩余 ${item.daysLeft} 天`}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+            {item.dateEnd}
+          </Text>
+        </div>
+      </List.Item>
+    );
   };
 
   return (
@@ -406,8 +451,8 @@ const ExpirationAlert: React.FC<{
         message={
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
             <span>
-              {items.length > 0
-                ? `未来 ${days} 天内有 ${items.length} 项即将到期（${parts.join('、')}）`
+              {upcomingItems.length > 0
+                ? `未来 ${days} 天内有 ${upcomingItems.length} 项即将到期（${parts.join('、')}）`
                 : '暂无即将到期项'}
             </span>
             {overdueCount > 0 && (
@@ -423,7 +468,7 @@ const ExpirationAlert: React.FC<{
               value={days}
               onChange={(value) => onDaysChange(value as number)}
             />
-            {items.length > 0 && (
+            {(overdueItems.length > 0 || upcomingItems.length > 0) && (
               <Button type="link" size="small" onClick={() => setExpanded((v) => !v)}>
                 {expanded ? '收起' : '展开'}
               </Button>
@@ -431,37 +476,50 @@ const ExpirationAlert: React.FC<{
           </div>
         }
       />
-      {expanded && items.length > 0 && (
+      {expanded && (overdueItems.length > 0 || upcomingItems.length > 0) && (
         <Card
           size="small"
           style={{ ...CARD_STYLE, marginTop: 8, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
           styles={{ body: { padding: '4px 0' } }}
         >
-          <List
-            size="small"
-            dataSource={items}
-            renderItem={(item) => (
-              <List.Item
-                style={{ padding: '8px 16px', cursor: 'pointer' }}
-                onClick={() => handleItemClick(item)}
+          {overdueItems.length > 0 && (
+            <>
+              <div
+                style={{
+                  padding: '8px 16px 4px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: COLORS.danger,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
               >
-                <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: 12 }}>
-                  <Text style={{ flex: 1 }} ellipsis>
-                    {item.title}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
-                    {item.type === 'bond' ? '保函' : '保修'}
-                  </Text>
-                  <Text style={{ fontSize: 12, flexShrink: 0, color: expirationDaysLeftColor(item.daysLeft) }}>
-                    {item.daysLeft === 0 ? '今日到期' : `剩余 ${item.daysLeft} 天`}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
-                    {item.dateEnd}
-                  </Text>
-                </div>
-              </List.Item>
-            )}
-          />
+                <span>已逾期（{overdueItems.length} 项）</span>
+                {overdueBondCount > 0 && (
+                  <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={handleViewAllOverdueBonds}>
+                    查看全部逾期担保
+                  </Button>
+                )}
+              </div>
+              <List size="small" dataSource={overdueItems} renderItem={renderExpirationItem} />
+            </>
+          )}
+          {upcomingItems.length > 0 && (
+            <>
+              <div
+                style={{
+                  padding: overdueItems.length > 0 ? '12px 16px 4px' : '8px 16px 4px',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: COLORS.warning,
+                }}
+              >
+                即将到期（{upcomingItems.length} 项）
+              </div>
+              <List size="small" dataSource={upcomingItems} renderItem={renderExpirationItem} />
+            </>
+          )}
         </Card>
       )}
     </div>
