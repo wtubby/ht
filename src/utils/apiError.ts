@@ -1,5 +1,10 @@
 const INVOICE_DUPLICATE_CODE = 3001;
 
+/** 与 backend/src/utils/errorCodes.js 认证段保持一致 */
+export const AUTH_ERROR_CODE = {
+  INVALID_CREDENTIALS: 2001,
+} as const;
+
 /** umi-request / axios 等常见 API 错误结构 */
 interface ApiErrorPayload {
   errorMessage?: string;
@@ -16,11 +21,24 @@ interface ApiRequestError {
   message?: string;
 }
 
-/** 是否为登录失效（401），业务层应跳过重复错误提示 */
+function getResponseErrorCode(error: ApiRequestError): number | undefined {
+  return error.response?.data?.errorCode ?? error.data?.errorCode ?? error.info?.errorCode;
+}
+
+/** 401 且非凭据错误（登录/改密输错），视为会话失效 */
+export function isSessionAuthError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as ApiRequestError;
+  if (e.response?.status !== 401) return false;
+  const errorCode = getResponseErrorCode(e);
+  return errorCode !== AUTH_ERROR_CODE.INVALID_CREDENTIALS;
+}
+
+/** 是否为登录失效，业务层应跳过重复错误提示 */
 export function isAuthError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const e = error as ApiRequestError;
-  return !!e.isAuthError || e.response?.status === 401;
+  return !!e.isAuthError || isSessionAuthError(error);
 }
 
 function extractApiErrorPayload(error: ApiRequestError): ApiErrorPayload | undefined {

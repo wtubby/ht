@@ -94,7 +94,10 @@ const Login: React.FC = () => {
     try {
       setLoginFailed(false);
       const { autoLogin, ...credentials } = values;
-      const msg = await login({ ...credentials, type: 'account' }, { skipAuth: true });
+      const msg = await login(
+        { ...credentials, type: 'account' },
+        { skipAuth: true, skipErrorHandler: true },
+      );
       if (msg?.accessToken) {
         message.success('登录成功！');
         setAuthTokens({

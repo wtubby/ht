@@ -1,6 +1,7 @@
 ﻿import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import type { RequestOptions } from '@@/plugin-request/request';
 import type { RequestConfig } from '@umijs/max';
+import { isSessionAuthError } from '@/utils/apiError';
 import { clearAuthTokens, getAccessToken, redirectToLogin } from '@/utils/auth';
 import { Modal, message, notification } from 'antd';
 
@@ -47,7 +48,7 @@ export function bindSetInitialState(fn: InitialStateSetter) {
   setInitialStateRef = fn;
 }
 
-/** 认证失败：弹窗提示并跳转登录（方案 A：任意 401 统一走此出口） */
+/** 认证失败：弹窗提示并跳转登录（方案 A：会话失效类 401 走此出口） */
 export function forceLogout(tip = LOGOUT_MESSAGE) {
   if (isLoggingOut) return;
   isLoggingOut = true;
@@ -80,7 +81,7 @@ function markAuthError(error: unknown) {
 }
 
 function handleUnauthorized(error: any) {
-  if (error?.response?.status !== 401) {
+  if (!isSessionAuthError(error)) {
     return Promise.reject(error);
   }
 
@@ -170,7 +171,7 @@ export const errorConfig: RequestConfig = {
     },
   ],
 
-  // 响应拦截器：401 统一登出，不自动刷新 Token
+  // 响应拦截器：会话失效类 401 统一登出，不自动刷新 Token
   responseInterceptors: [
     [(response) => response, (error: any) => handleUnauthorized(error) as Promise<any>],
   ],

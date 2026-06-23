@@ -1,5 +1,5 @@
 import { logout } from '@/services/wtu/user.api';
-import { clearAuthTokens } from '@/utils/auth';
+import { clearAuthTokens, LOGIN_PATH } from '@/utils/auth';
 import { LockOutlined, LogoutOutlined } from '@ant-design/icons';
 import { history, useModel } from '@umijs/max';
 import { Avatar, Dropdown, Spin, Tooltip } from 'antd';
@@ -65,9 +65,9 @@ export const SiderUserFooter: React.FC<SiderUserFooterProps> = ({ collapsed }) =
     const { search, pathname } = window.location;
     const urlParams = new URL(window.location.href).searchParams;
     const redirect = urlParams.get('redirect');
-    if (window.location.pathname !== '/user/login' && !redirect) {
+    if (window.location.pathname !== LOGIN_PATH && !redirect) {
       history.replace({
-        pathname: '/user/login',
+        pathname: LOGIN_PATH,
         search: stringify({
           redirect: pathname + search,
         }),

@@ -7,10 +7,9 @@ import { history } from '@umijs/max';
 import { App, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import defaultSettings from '../config/defaultSettings';
-import { bindSetInitialState, errorConfig, forceLogout } from './requestErrorConfig';
+import { bindSetInitialState, errorConfig } from './requestErrorConfig';
 import { getPublicSystemSettings } from './services/wtu/systemSettings.api';
 import { getCurrentUser } from './services/wtu/user.api';
-import { isAuthError } from '@/utils/apiError';
 import { hasAccessToken, LOGIN_PATH } from './utils/auth';
 
 // 创建 QueryClient 实例
@@ -66,10 +65,8 @@ export async function getInitialState(): Promise<{
         return currentUser;
       }
       return undefined;
-    } catch (error) {
-      if (isAuthError(error)) {
-        forceLogout();
-      }
+    } catch {
+      // 会话失效由响应拦截器统一 forceLogout
     }
     return undefined;
   };
@@ -107,8 +104,12 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     footerRender: false,
     onPageChange: () => {
       const { location } = history;
-      // 如果没有登录，重定向到 login
-      if (!initialState?.currentUser && location.pathname !== loginPath) {
+      // 无用户且无 token 时跳转登录；有 token 时由 forceLogout 或 fetchUserInfo 处理
+      if (
+        !initialState?.currentUser &&
+        !hasAccessToken() &&
+        location.pathname !== loginPath
+      ) {
         history.push(loginPath);
       }
     },
