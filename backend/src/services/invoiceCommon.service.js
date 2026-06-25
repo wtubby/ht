@@ -122,7 +122,9 @@ function createInvoiceService(config) {
     return data;
   }
 
-  async function create(body, userId) {
+  async function create(body, userId, options = {}) {
+    const { transaction } = options;
+
     await assertInvoiceNoUnique(body.invoice_no);
     await assertContractExists(body[contractField]);
 
@@ -133,11 +135,13 @@ function createInvoiceService(config) {
       }
     }
 
-    return model.create(payload);
+    return model.create(payload, { transaction });
   }
 
-  async function update(id, body, userId) {
-    const record = await model.findByPk(id);
+  async function update(id, body, userId, options = {}) {
+    const { transaction } = options;
+
+    const record = await model.findByPk(id, { transaction });
     if (!record) {
       throw new ApiError(404, notFoundMessage, ERROR_CODES.RESOURCE_NOT_FOUND);
     }
@@ -156,7 +160,7 @@ function createInvoiceService(config) {
       }
     }
 
-    await record.update(updates);
+    await record.update(updates, { transaction });
     return record;
   }
 

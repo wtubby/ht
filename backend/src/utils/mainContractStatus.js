@@ -140,7 +140,12 @@ async function getMainContractTotals(mainContractId, transaction) {
 async function syncMainContractStatus(mainContractId, transaction) {
   if (!mainContractId) return;
 
-  const contract = await MainContract.findByPk(mainContractId, { transaction });
+  const findOptions = { transaction };
+  if (transaction) {
+    findOptions.lock = transaction.LOCK.UPDATE;
+  }
+
+  const contract = await MainContract.findByPk(mainContractId, findOptions);
   if (!contract) return;
 
   const totals = await getMainContractTotals(mainContractId, transaction);
@@ -157,4 +162,6 @@ module.exports = {
   syncMainContractStatus,
   computeWarrantyEndDate,
   resolveDateWarrantyOnWrite,
+  toAmount,
+  isAmountSatisfied,
 };

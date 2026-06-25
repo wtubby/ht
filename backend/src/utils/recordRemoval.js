@@ -10,9 +10,10 @@ const { cleanupModuleFiles } = require('./fileCleanup');
  * @param {number} options.id - 记录 ID
  * @param {string} options.fileModule - 附件模块标识
  * @param {string} options.notFoundMessage - 记录不存在时的错误信息
+ * @param {(record: import('sequelize').Model, transaction: import('sequelize').Transaction) => Promise<void>} [options.afterDestroy] - 删除记录后、提交前回调（同事务）
  * @returns {Promise<{ deletedFilesCount: number }>}
  */
-async function removeRecordWithFiles({ model, id, fileModule, notFoundMessage }) {
+async function removeRecordWithFiles({ model, id, fileModule, notFoundMessage, afterDestroy }) {
   const t = await db.sequelize.transaction();
 
   try {
@@ -23,6 +24,9 @@ async function removeRecordWithFiles({ model, id, fileModule, notFoundMessage })
 
     const deletedFilesCount = await cleanupModuleFiles(fileModule, id, t);
     await record.destroy({ transaction: t });
+    if (afterDestroy) {
+      await afterDestroy(record, t);
+    }
     await t.commit();
 
     return { deletedFilesCount };

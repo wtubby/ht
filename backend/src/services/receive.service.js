@@ -106,11 +106,18 @@ async function createReceive(body, userId) {
     data[key] = body[key];
   }
 
-  const receive = await Receive.create(data);
-
-  await syncMainContractStatus(receive.main_contract_id);
-
-  return buildReceiveDetail(receive.id);
+  const t = await db.sequelize.transaction();
+  try {
+    const receive = await Receive.create(data, { transaction: t });
+    await syncMainContractStatus(receive.main_contract_id, t);
+    await t.commit();
+    return buildReceiveDetail(receive.id);
+  } catch (error) {
+    if (!t.finished) {
+      await t.rollback();
+    }
+    throw error;
+  }
 }
 
 /**
@@ -162,40 +169,46 @@ async function updateReceive(id, body, userId) {
     }
   }
 
-  const [num] = await Receive.update(updates, { where: { id } });
-
-  if (num !== 1) {
-    throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
-
   const nextMainContractId = body.main_contract_id ?? existing.main_contract_id;
-  await syncMainContractStatus(nextMainContractId);
-  if (existing.main_contract_id && existing.main_contract_id !== nextMainContractId) {
-    await syncMainContractStatus(existing.main_contract_id);
-  }
 
-  return buildReceiveDetail(id);
+  const t = await db.sequelize.transaction();
+  try {
+    const [num] = await Receive.update(updates, { where: { id }, transaction: t });
+
+    if (num !== 1) {
+      throw new ApiError(404, '收款记录不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+    }
+
+    await syncMainContractStatus(nextMainContractId, t);
+    if (existing.main_contract_id && existing.main_contract_id !== nextMainContractId) {
+      await syncMainContractStatus(existing.main_contract_id, t);
+    }
+
+    await t.commit();
+    return buildReceiveDetail(id);
+  } catch (error) {
+    if (!t.finished) {
+      await t.rollback();
+    }
+    throw error;
+  }
 }
 
 /**
  * 删除收款（含关联文件清理）
  */
 async function removeReceive(id) {
-  const existing = await Receive.findByPk(id, { attributes: ['main_contract_id'] });
-  const mainContractId = existing?.main_contract_id;
-
-  const result = await removeRecordWithFiles({
+  return removeRecordWithFiles({
     model: Receive,
     id,
     fileModule: FILE_MODULE,
     notFoundMessage: '收款记录不存在',
+    afterDestroy: async (record, transaction) => {
+      if (record.main_contract_id) {
+        await syncMainContractStatus(record.main_contract_id, transaction);
+      }
+    },
   });
-
-  if (mainContractId) {
-    await syncMainContractStatus(mainContractId);
-  }
-
-  return result;
 }
 
 /**

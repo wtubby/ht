@@ -1,6 +1,7 @@
 const db = require('../models');
 const { createInvoiceService } = require('./invoiceCommon.service');
 const { findMainContractsForSelect } = require('./contractSelect.service');
+const { removeRecordWithFiles } = require('../utils/recordRemoval');
 const { syncMainContractStatus } = require('../utils/mainContractStatus');
 
 const { InvoiceOut, MainContract, User } = db;
@@ -58,38 +59,58 @@ const baseService = createInvoiceService({
   },
 });
 
-async function syncMainContractStatusForInvoice(record, previousMainContractId) {
+async function syncMainContractStatusForInvoice(record, previousMainContractId, transaction) {
   const nextMainContractId = record.main_contract_id;
-  await syncMainContractStatus(nextMainContractId);
+  await syncMainContractStatus(nextMainContractId, transaction);
   if (previousMainContractId && previousMainContractId !== nextMainContractId) {
-    await syncMainContractStatus(previousMainContractId);
+    await syncMainContractStatus(previousMainContractId, transaction);
   }
 }
 
 async function createInvoiceOut(body, userId) {
-  const invoiceOut = await baseService.create(body, userId);
-  await syncMainContractStatus(invoiceOut.main_contract_id);
-  return invoiceOut;
+  const t = await db.sequelize.transaction();
+  try {
+    const invoiceOut = await baseService.create(body, userId, { transaction: t });
+    await syncMainContractStatus(invoiceOut.main_contract_id, t);
+    await t.commit();
+    return invoiceOut;
+  } catch (error) {
+    if (!t.finished) {
+      await t.rollback();
+    }
+    throw error;
+  }
 }
 
 async function updateInvoiceOut(id, body, userId) {
   const existing = await InvoiceOut.findByPk(id, { attributes: ['main_contract_id'] });
-  const invoiceOut = await baseService.update(id, body, userId);
-  await syncMainContractStatusForInvoice(invoiceOut, existing?.main_contract_id);
-  return invoiceOut;
+
+  const t = await db.sequelize.transaction();
+  try {
+    const invoiceOut = await baseService.update(id, body, userId, { transaction: t });
+    await syncMainContractStatusForInvoice(invoiceOut, existing?.main_contract_id, t);
+    await t.commit();
+    return invoiceOut;
+  } catch (error) {
+    if (!t.finished) {
+      await t.rollback();
+    }
+    throw error;
+  }
 }
 
 async function removeInvoiceOut(id) {
-  const existing = await InvoiceOut.findByPk(id, { attributes: ['main_contract_id'] });
-  const mainContractId = existing?.main_contract_id;
-
-  const result = await baseService.remove(id);
-
-  if (mainContractId) {
-    await syncMainContractStatus(mainContractId);
-  }
-
-  return result;
+  return removeRecordWithFiles({
+    model: InvoiceOut,
+    id,
+    fileModule: FILE_MODULE,
+    notFoundMessage: '销项发票不存在',
+    afterDestroy: async (record, transaction) => {
+      if (record.main_contract_id) {
+        await syncMainContractStatus(record.main_contract_id, transaction);
+      }
+    },
+  });
 }
 
 module.exports = {
