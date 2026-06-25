@@ -207,17 +207,20 @@ async function updateCompany(id, body, userId) {
 /**
  * 统计单位被合同引用的份数（总包 + 分包，按合同条数计）
  */
-async function countCompanyContractReferences(companyId) {
+async function countCompanyContractReferences(companyId, transaction) {
+  const countOpts = transaction ? { transaction } : {};
   const [mainContractCount, subContractCount] = await Promise.all([
     MainContract.count({
       where: {
         [Op.or]: [{ party_a_id: companyId }, { party_b_id: companyId }],
       },
+      ...countOpts,
     }),
     SubContract.count({
       where: {
         [Op.or]: [{ party_b_id: companyId }, { party_c_id: companyId }],
       },
+      ...countOpts,
     }),
   ]);
 
@@ -232,23 +235,31 @@ async function countCompanyContractReferences(companyId) {
  * 删除单位（无合同引用时方可删除）
  */
 async function removeCompany(id) {
-  const company = await Company.findByPk(id);
-  if (!company) {
-    throw new ApiError(404, '单位不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
+  const t = await db.sequelize.transaction();
 
-  const { total } = await countCompanyContractReferences(id);
-  if (total > 0) {
-    throw new ApiError(
-      409,
-      `已被 ${total} 份合同使用，请改为禁用`,
-      ERROR_CODES.CONTRACT_HAS_RELATED_DATA,
-    );
-  }
+  try {
+    const company = await Company.findByPk(id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!company) {
+      throw new ApiError(404, '单位不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+    }
 
-  const num = await Company.destroy({ where: { id } });
-  if (num !== 1) {
-    throw new ApiError(404, '单位不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+    const { total } = await countCompanyContractReferences(id, t);
+    if (total > 0) {
+      throw new ApiError(
+        409,
+        `已被 ${total} 份合同使用，请改为禁用`,
+        ERROR_CODES.CONTRACT_HAS_RELATED_DATA,
+      );
+    }
+
+    await company.destroy({ transaction: t });
+    await t.commit();
+  } catch (error) {
+    await t.rollback();
+    throw error;
   }
 }
 

@@ -203,17 +203,18 @@ async function updateMainContract(id, body, userId) {
   return buildMainContractDetail(id);
 }
 
-async function getMainContractRelatedCounts(id) {
+async function getMainContractRelatedCounts(id, transaction) {
+  const countOptions = transaction ? { transaction } : {};
   const [
     subContractCount,
     receiveCount,
     invoiceOutCount,
     paymentCount,
   ] = await Promise.all([
-    SubContract.count({ where: { main_contract_id: id } }),
-    Receive.count({ where: { main_contract_id: id } }),
-    InvoiceOut.count({ where: { main_contract_id: id } }),
-    Payment.count({ where: { main_contract_id: id } }),
+    SubContract.count({ where: { main_contract_id: id }, ...countOptions }),
+    Receive.count({ where: { main_contract_id: id }, ...countOptions }),
+    InvoiceOut.count({ where: { main_contract_id: id }, ...countOptions }),
+    Payment.count({ where: { main_contract_id: id }, ...countOptions }),
   ]);
 
   return {
@@ -247,24 +248,27 @@ function buildDeleteBlockedMessage(counts) {
  * 删除总包合同（仅允许无业务关联数据时删除，并清理本合同附件）
  */
 async function removeMainContract(id) {
-  const mainContract = await MainContract.findByPk(id);
-  if (!mainContract) {
-    throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
-
-  const relatedCounts = await getMainContractRelatedCounts(id);
-  const blockedDetail = buildDeleteBlockedMessage(relatedCounts);
-  if (blockedDetail) {
-    throw new ApiError(
-      409,
-      `存在关联数据，无法删除：${blockedDetail}。请先清理相关数据后再试。`,
-      ERROR_CODES.CONTRACT_HAS_RELATED_DATA,
-    );
-  }
-
   const t = await db.sequelize.transaction();
 
   try {
+    const mainContract = await MainContract.findByPk(id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!mainContract) {
+      throw new ApiError(404, '主合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+    }
+
+    const relatedCounts = await getMainContractRelatedCounts(id, t);
+    const blockedDetail = buildDeleteBlockedMessage(relatedCounts);
+    if (blockedDetail) {
+      throw new ApiError(
+        409,
+        `存在关联数据，无法删除：${blockedDetail}。请先清理相关数据后再试。`,
+        ERROR_CODES.CONTRACT_HAS_RELATED_DATA,
+      );
+    }
+
     const deletedFilesCount = await cleanupFiles({ main_contract_id: id }, t);
     await mainContract.destroy({ transaction: t });
     await t.commit();

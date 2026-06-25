@@ -220,15 +220,16 @@ async function updateSubContract(id, body, userId) {
   return findSubContractWithRelations(id);
 }
 
-async function getSubContractRelatedCounts(id) {
+async function getSubContractRelatedCounts(id, transaction) {
+  const countOptions = transaction ? { transaction } : {};
   const [
     paymentCount,
     invoiceInCount,
     bondCount,
   ] = await Promise.all([
-    Payment.count({ where: { sub_contract_id: id } }),
-    InvoiceIn.count({ where: { sub_contract_id: id } }),
-    Bond.count({ where: { sub_contract_id: id } }),
+    Payment.count({ where: { sub_contract_id: id }, ...countOptions }),
+    InvoiceIn.count({ where: { sub_contract_id: id }, ...countOptions }),
+    Bond.count({ where: { sub_contract_id: id }, ...countOptions }),
   ]);
 
   return {
@@ -258,24 +259,27 @@ function buildDeleteBlockedMessage(counts) {
  * 删除分包合同（仅允许无业务关联数据时删除，并清理本合同附件）
  */
 async function removeSubContract(id) {
-  const subContract = await SubContract.findByPk(id);
-  if (!subContract) {
-    throw new ApiError(404, '分包合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
-  }
-
-  const relatedCounts = await getSubContractRelatedCounts(id);
-  const blockedDetail = buildDeleteBlockedMessage(relatedCounts);
-  if (blockedDetail) {
-    throw new ApiError(
-      409,
-      `存在关联数据，无法删除：${blockedDetail}。请先清理相关数据后再试。`,
-      ERROR_CODES.CONTRACT_HAS_RELATED_DATA,
-    );
-  }
-
   const t = await db.sequelize.transaction();
 
   try {
+    const subContract = await SubContract.findByPk(id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!subContract) {
+      throw new ApiError(404, '分包合同不存在', ERROR_CODES.RESOURCE_NOT_FOUND);
+    }
+
+    const relatedCounts = await getSubContractRelatedCounts(id, t);
+    const blockedDetail = buildDeleteBlockedMessage(relatedCounts);
+    if (blockedDetail) {
+      throw new ApiError(
+        409,
+        `存在关联数据，无法删除：${blockedDetail}。请先清理相关数据后再试。`,
+        ERROR_CODES.CONTRACT_HAS_RELATED_DATA,
+      );
+    }
+
     const deletedFilesCount = await cleanupFiles({ sub_contract_id: id }, t);
     await subContract.destroy({ transaction: t });
     await t.commit();
