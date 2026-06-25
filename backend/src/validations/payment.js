@@ -2,7 +2,7 @@ const Joi = require('joi');
 const { idParam, listQuery } = require('./common');
 
 const paymentBody = {
-  payment_amount: Joi.number().min(0),
+  payment_amount: Joi.number().min(0).precision(2),
   sub_contract_id: Joi.number().integer(),
   payer_name: Joi.string().max(200),
   payee_name: Joi.string().max(200),
