@@ -4,7 +4,6 @@ import { LockOutlined, LogoutOutlined } from '@ant-design/icons';
 import { history, useModel } from '@umijs/max';
 import { Avatar, Dropdown, Spin, Tooltip } from 'antd';
 import { createStyles } from 'antd-style';
-import { stringify } from 'querystring';
 import React, { useCallback } from 'react';
 import { flushSync } from 'react-dom';
 
@@ -68,9 +67,9 @@ export const SiderUserFooter: React.FC<SiderUserFooterProps> = ({ collapsed }) =
     if (window.location.pathname !== LOGIN_PATH && !redirect) {
       history.replace({
         pathname: LOGIN_PATH,
-        search: stringify({
+        search: new URLSearchParams({
           redirect: pathname + search,
-        }),
+        }).toString(),
       });
     }
   };

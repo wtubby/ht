@@ -59,7 +59,6 @@ export const useReceiveSelectOptions = () => {
   return useQuery({
     queryKey: receiveKeys.selectOptions,
     queryFn: getReceiveSelectOptions,
-    staleTime: 10 * 60 * 1000,
   });
 };
 

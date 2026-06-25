@@ -134,11 +134,11 @@ export const useSubContractFiles = (
 };
 
 /** 获取分包表单选择项（总包合同和单位列表） */
-export const useSubContractSelectOptions = () => {
+export const useSubContractSelectOptions = (enabled = true) => {
   return useQuery({
     queryKey: subContractKeys.subContractSelectOptions,
     queryFn: getSubContractSelectOptions,
-    staleTime: 10 * 60 * 1000,
+    enabled,
   });
 };
 

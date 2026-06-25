@@ -60,7 +60,6 @@ export function useDashboardCharts() {
   return useQuery({
     queryKey: dashboardKeys.charts,
     queryFn: fetchDashboardCharts,
-    staleTime: 10 * 60 * 1000,
   });
 }
 

@@ -44,7 +44,7 @@ const columns: ProColumns<API.Payment>[] = [
   },
   {
     title: '收款方',
-    dataIndex: 'payee_name',
+    dataIndex: 'account_name',
     width: 250,
     ellipsis: true,
   },

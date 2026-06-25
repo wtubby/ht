@@ -59,7 +59,6 @@ export const usePaymentSelectOptions = () => {
   return useQuery({
     queryKey: paymentKeys.selectOptions,
     queryFn: getPaymentSelectOptions,
-    staleTime: 10 * 60 * 1000,
   });
 };
 

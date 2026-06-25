@@ -65,7 +65,7 @@ const SubContractForm: React.FC<SubContractFormProps> = ({
   const formRef = useRef<FormInstance>();
   const addMutation = useAddSubContract();
   const updateMutation = useUpdateSubContract();
-  const { data: selectOptionsData } = useSubContractSelectOptions();
+  const { data: selectOptionsData } = useSubContractSelectOptions(visible);
 
   const [contractId, setContractId] = useState<number | null>(null);
   const [mainContractId, setMainContractId] = useState<number | null>(

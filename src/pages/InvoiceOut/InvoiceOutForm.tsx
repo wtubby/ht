@@ -205,7 +205,8 @@ const InvoiceOutForm: React.FC<InvoiceOutFormProps> = ({
       applyInvoiceDetailToForm(formRef, hydratingRef, data);
       markFormClean();
       if (data.main_contract_id) {
-        void fetchContractById(data.main_contract_id);
+        // 编辑态保留发票已保存的购销方，仅拉取合同用于下拉选项
+        void fetchContractById(data.main_contract_id, { fillBuyerSeller: false });
       }
     },
     [hydratingRef, markFormClean, fetchContractById],

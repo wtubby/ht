@@ -76,7 +76,7 @@ export function useInvoiceFormContractLink<
   beforeApplyContract,
 }: UseInvoiceFormContractLinkOptions<TOption, TEntity>) {
   const fetchContractById = useCallback(
-    async (contractId: number) => {
+    async (contractId: number, options?: { fillBuyerSeller?: boolean }) => {
       if (!contractId) return;
 
       try {
@@ -94,11 +94,13 @@ export function useInvoiceFormContractLink<
           });
           onContractFetched(contract, option);
 
-          hydratingRef.current = true;
-          try {
-            formRef.current?.setFieldsValue(resolveInvoiceBuyerSeller(contract, direction));
-          } finally {
-            hydratingRef.current = false;
+          if (options?.fillBuyerSeller !== false) {
+            hydratingRef.current = true;
+            try {
+              formRef.current?.setFieldsValue(resolveInvoiceBuyerSeller(contract, direction));
+            } finally {
+              hydratingRef.current = false;
+            }
           }
         });
       } catch {

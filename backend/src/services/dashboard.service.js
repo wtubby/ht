@@ -10,6 +10,7 @@ const {
   sequelize,
 } = require('../models');
 const { resolveBondDisplayStatus } = require('../utils/bond.helper');
+const { isAmountSatisfied, toAmount } = require('../utils/mainContractStatus');
 
 /**
  * 日期格式化列辅助函数 - 抽象数据库方言差异
@@ -181,6 +182,50 @@ function addDays(date, days) {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+const bondExpirationSubContractInclude = {
+  model: SubContract,
+  as: 'subContract',
+  attributes: ['contract_name'],
+  include: [{
+    model: MainContract,
+    as: 'mainContract',
+    attributes: ['date_end'],
+  }],
+};
+
+/** 总包已填竣工日期视为工程完工，保函到期不再计入仪表盘预警 */
+function shouldWarnBondExpiration(subContract) {
+  const completionDate = subContract?.mainContract?.date_end;
+  return completionDate == null || completionDate === '';
+}
+
+/** 收款已达到结算金额时，保修到期不再计入仪表盘预警 */
+function shouldWarnWarrantyExpiration(contract, totalReceived) {
+  const settlement = toAmount(contract.amount_settlement);
+  if (settlement == null || settlement <= 0) return true;
+  return !isAmountSatisfied(totalReceived, settlement);
+}
+
+async function getReceiveTotalsByContractIds(contractIds) {
+  if (!contractIds.length) return new Map();
+
+  const rows = await Receive.findAll({
+    where: { main_contract_id: { [Op.in]: contractIds } },
+    attributes: [
+      'main_contract_id',
+      [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('receive_amount')), 0), 'total_received'],
+    ],
+    group: ['main_contract_id'],
+    raw: true,
+  });
+
+  const map = new Map();
+  rows.forEach((row) => {
+    map.set(row.main_contract_id, parseFloat(row.total_received) || 0);
+  });
+  return map;
 }
 
 function calcDaysLeft(dateEnd) {
@@ -494,14 +539,10 @@ async function getUpcomingExpirations(query) {
         status: { [Op.ne]: '已退还' },
         date_end: { [Op.between]: [todayStr, endStr] },
       },
-      include: [{
-        model: SubContract,
-        as: 'subContract',
-        attributes: ['contract_name'],
-      }],
+      include: [bondExpirationSubContractInclude],
     }),
     MainContract.findAll({
-      attributes: ['id', 'contract_name', 'date_warranty'],
+      attributes: ['id', 'contract_name', 'date_warranty', 'amount_settlement'],
       where: {
         contract_status: { [Op.ne]: '未签约' },
         date_warranty: { [Op.between]: [todayStr, endStr] },
@@ -515,14 +556,10 @@ async function getUpcomingExpirations(query) {
         status: { [Op.ne]: '已退还' },
         date_end: { [Op.lt]: todayStr },
       },
-      include: [{
-        model: SubContract,
-        as: 'subContract',
-        attributes: ['contract_name'],
-      }],
+      include: [bondExpirationSubContractInclude],
     }),
     MainContract.findAll({
-      attributes: ['id', 'contract_name', 'date_warranty'],
+      attributes: ['id', 'contract_name', 'date_warranty', 'amount_settlement'],
       where: {
         contract_status: { [Op.ne]: '未签约' },
         date_warranty: { [Op.lt]: todayStr },
@@ -531,10 +568,17 @@ async function getUpcomingExpirations(query) {
     }),
   ]);
 
+  const warrantyContractIds = [...new Set([
+    ...warrantyRows.map((row) => row.id),
+    ...overdueWarrantyRows.map((row) => row.id),
+  ])];
+  const receiveTotalsMap = await getReceiveTotalsByContractIds(warrantyContractIds);
+
   const bondItems = bondRows
     .map((bond) => {
       const plain = bond.get({ plain: true });
       if (resolveBondDisplayStatus(plain) !== '担保中') return null;
+      if (!shouldWarnBondExpiration(plain.subContract)) return null;
 
       const contractName = plain.subContract?.contract_name;
       return {
@@ -548,19 +592,22 @@ async function getUpcomingExpirations(query) {
     })
     .filter(Boolean);
 
-  const warrantyItems = warrantyRows.map((row) => ({
-    type: 'warranty',
-    id: row.id,
-    title: row.contract_name,
-    relatedName: null,
-    dateEnd: row.date_warranty,
-    daysLeft: calcDaysLeft(row.date_warranty),
-  }));
+  const warrantyItems = warrantyRows
+    .filter((row) => shouldWarnWarrantyExpiration(row, receiveTotalsMap.get(row.id) ?? 0))
+    .map((row) => ({
+      type: 'warranty',
+      id: row.id,
+      title: row.contract_name,
+      relatedName: null,
+      dateEnd: row.date_warranty,
+      daysLeft: calcDaysLeft(row.date_warranty),
+    }));
 
   const overdueBondItems = overdueBondRows
     .map((bond) => {
       const plain = bond.get({ plain: true });
       if (resolveBondDisplayStatus(plain) !== '已过期') return null;
+      if (!shouldWarnBondExpiration(plain.subContract)) return null;
 
       const contractName = plain.subContract?.contract_name;
       return {
@@ -574,14 +621,16 @@ async function getUpcomingExpirations(query) {
     })
     .filter(Boolean);
 
-  const overdueWarrantyItems = overdueWarrantyRows.map((row) => ({
-    type: 'warranty',
-    id: row.id,
-    title: row.contract_name,
-    relatedName: null,
-    dateEnd: row.date_warranty,
-    daysLeft: calcDaysLeft(row.date_warranty),
-  }));
+  const overdueWarrantyItems = overdueWarrantyRows
+    .filter((row) => shouldWarnWarrantyExpiration(row, receiveTotalsMap.get(row.id) ?? 0))
+    .map((row) => ({
+      type: 'warranty',
+      id: row.id,
+      title: row.contract_name,
+      relatedName: null,
+      dateEnd: row.date_warranty,
+      daysLeft: calcDaysLeft(row.date_warranty),
+    }));
 
   const upcomingItems = [...bondItems, ...warrantyItems].sort((a, b) => a.daysLeft - b.daysLeft);
   const overdueItems = [...overdueBondItems, ...overdueWarrantyItems].sort(

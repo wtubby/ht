@@ -64,7 +64,6 @@ export const useBondSelectOptions = (onlyPending = true, enabled = true) => {
     queryKey: onlyPending ? bondKeys.pendingOptions : bondKeys.selectOptions,
     queryFn: () => getBondSelectOptions(onlyPending ? { only_pending: true } : undefined),
     enabled,
-    staleTime: 10 * 60 * 1000,
   });
 };
 

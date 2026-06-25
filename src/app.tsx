@@ -16,9 +16,8 @@ import { hasAccessToken, LOGIN_PATH } from './utils/auth';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5分钟内数据视为新鲜
-      retry: 1, // 失败重试1次
-      refetchOnWindowFocus: false, // 窗口聚焦时不自动刷新
+      retry: 1,
+      refetchOnWindowFocus: false,
     },
   },
 });

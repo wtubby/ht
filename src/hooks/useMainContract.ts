@@ -101,7 +101,6 @@ export const useCompaniesForSelect = () => {
   return useQuery({
     queryKey: mainContractKeys.companiesForSelect,
     queryFn: getMainContractSelectOptions,
-    staleTime: 10 * 60 * 1000,
   });
 };
 

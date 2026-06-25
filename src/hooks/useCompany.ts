@@ -6,8 +6,15 @@ import {
   removeCompany,
   updateCompany,
 } from '@/services/wtu/company.api';
+import type { QueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { createCrudHooks } from './factories/createCrudHooks';
+
+/** 单位变更后刷新依赖单位下拉的表单缓存 */
+function invalidateCompanyDependentSelectOptions(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ['subContractSelectOptions'] });
+  queryClient.invalidateQueries({ queryKey: ['companiesForSelect'] });
+}
 
 type CompanyPayload = API.Company & { bankAccounts?: API.CompanyBankAccount[] };
 
@@ -33,6 +40,7 @@ const companyCrud = createCrudHooks<
   onUpdateSuccess: (queryClient, variables) => {
     queryClient.invalidateQueries({ queryKey: ['companyBankAccounts', variables.id] });
   },
+  invalidateRelated: invalidateCompanyDependentSelectOptions,
 });
 
 export const companyKeys = {

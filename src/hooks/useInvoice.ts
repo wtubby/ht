@@ -136,7 +136,6 @@ export const useInvoiceInSelectOptions = (params?: { search?: string; limit?: nu
   return useQuery({
     queryKey: [...invoiceInKeys.selectOptions, params] as const,
     queryFn: () => getInvoiceInSelectOptions(params),
-    staleTime: 10 * 60 * 1000,
   });
 };
 
@@ -145,7 +144,6 @@ export const useInvoiceOutSelectOptions = (params?: { search?: string; limit?: n
   return useQuery({
     queryKey: [...invoiceOutKeys.selectOptions, params] as const,
     queryFn: () => getInvoiceOutSelectOptions(params),
-    staleTime: 10 * 60 * 1000,
   });
 };
 
