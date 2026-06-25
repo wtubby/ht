@@ -60,8 +60,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 配置静态文件服务，指向项目根目录下的 uploads 目录
+const { applyUploadsStaticHeaders } = require('./utils/fileUploadPolicy');
 const uploadsDir = path.join(__dirname, '../../uploads');
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(uploadsDir, {
+  setHeaders: applyUploadsStaticHeaders,
+}));
 
 // =========================
 // API 路由

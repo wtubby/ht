@@ -13,6 +13,7 @@ const { resolvePhysicalPath } = require('../utils/pathResolver');
 const ApiError = require('../utils/ApiError');
 const ERROR_CODES = require('../utils/errorCodes');
 const { resolveListPagination } = require('../utils/listPagination');
+const { validateUploadFile } = require('../utils/fileUploadPolicy');
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -134,6 +135,15 @@ async function uploadDirect({ file, body, userId }) {
   }
 
   const { file_module, record_id, main_contract_id, sub_contract_id } = body;
+
+  try {
+    validateUploadFile(file, file_module);
+  } catch (err) {
+    if (file.path && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
+    throw err;
+  }
 
   if (!file_module) {
     throw new ApiError(400, '缺少file_module参数', ERROR_CODES.VALIDATION_ERROR);
